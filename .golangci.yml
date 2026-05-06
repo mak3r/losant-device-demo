@@ -1,0 +1,16 @@
+run:
+  timeout: 5m
+
+linters:
+  disable-all: true
+  enable:
+    - errcheck
+    - govet
+    - staticcheck  # subsumes gosimple in golangci-lint v2
+    - ineffassign
+    - unused
+    - gosec
+
+issues:
+  exclude-dirs:
+    - vendor
