@@ -8,6 +8,8 @@ bin/
 # OpenTofu / Terraform
 *.tfvars
 !*.tfvars.template
+*.tfvars.json
+!*.tfvars.json.template
 .terraform/
 .terraform.lock.hcl
 *.tfstate
@@ -28,6 +30,11 @@ override.tf.json
 # Claude Code local settings (machine-specific, never commit)
 .claude/settings.local.json
 .claude/**/settings.local.json
+
+# Kubeconfig files — fetched by ldc-demo get-kubeconfig; contain cluster admin credentials
+kubeconfig
+*.kubeconfig
+kube_config_*
 
 # Editor
 .DS_Store
