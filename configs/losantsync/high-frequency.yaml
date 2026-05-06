@@ -1,0 +1,20 @@
+# High-frequency LosantSync CR configuration.
+# Reports cluster health metrics every 1 minute.
+# Useful for live demos where you want to show real-time responsiveness.
+# Apply with: ldc-demo apply config high-frequency <cluster-name>
+apiVersion: losant.com/v1alpha1
+kind: LosantSync
+metadata:
+  name: losantsync-high-frequency
+  namespace: losant-system
+spec:
+  syncInterval: "1m"
+  metrics:
+    nodes: true
+    pods: true
+    deployments: true
+    events: true
+    storage: true
+  reporting:
+    mode: mqtt
+    batchSize: 1

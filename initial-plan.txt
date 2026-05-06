@@ -1,0 +1,87 @@
+I need to develop an infrastructure project which allows me to quickly standup infrastructure in
+  various cloud providers for demoing the losant-device controller
+  https://github.com/mak3r/losant-device. I want to use open source projects as much as possible.
+  The infrastructure tool of choice to cover all cloud providers is open tofu. The initial cloud
+  provider will be AWS for simplicity sake. This project needs to allow a user to quickly and
+  easily setup a series of kubernetes clusters, adding and removing whole clusters or scaling the
+  number of nodes with a few simple constraints and configuration details. Each cluster will run
+  on instances in the cloud provider. For simplicity, clusters will only be composed from k3s for
+  now however in the future, they may be composed with RKE2 or another distribution. One of the
+  values of k3s is that it can be very easily and quickly installed and started on SUSE Linux
+  Micro or the OpenSUSE micro OS. In addition, it is possible to setup the configuration of the
+  losant-device controller as a helm chart in the k3s manifests directory so that it just starts
+  right up. The user should have the ability to create clusters from a set of pre-defined
+  resources. All of this functionality is done with a command line tool which wraps the
+  functionality of open tofu alongside some use case scenarios. Let's use 'ldc-demo' as the name
+  of the command line tool. A set of commands might look like this:
+
+ldc-demo help:
+list available commands in ldc-demo tool
+
+ldc-demo list deployed:
+list the deployed clusters including the following details
+uid, name, cloud-provider, number of nodes
+uid is a unique value assigned during the creation step
+
+ldc-demo list configs:
+list the available configurations of losantsync CRs
+a user should be able to create and commit these configurations to the project in a location specifically designed to contain these configurations
+
+ldc-demo create <name> <cloud-provider> 
+creates a single node demo cluster on an instance in <cloud-provider> whose resources are referenced by <name> 
+<name> + <cloud-provider> must be unique 
+a uid will be assigned at creation time
+
+ldc-demo create ha <name> <cloud-provider> 
+creates a 3 node highly available demo cluster on instances in <cloud-provider> whose resources are referenced by <name>
+
+ldc-demo scale <name>
+adds a worker node to an existing cluster whose resources are referenced by <name>
+fails gracefully if <name> does not exist
+after adding the node, the following detail is output
+uid, name, cloud-provider, number of nodes
+
+ldc-demo fail [options] <name>
+options include:
+node: temporarily stops one instance of the cluster used by <name>
+network: temporarily prevents the outbound network ability of the hosts for <name>
+pod: creates a deployment in the cluster with a replica set of 1 pod which always crashloops
+
+ldc-demo fix [options] <name>
+node: restarts any stopped instances for <name> 
+network: repairs the network so that outbound traffic is allowed again for <name>
+pod: removes the crashloop demo deployment from <name>
+
+ldc-demo remove <name>
+completely removes all resources in the cloud-provider that was referenced by <name>
+
+ldc-demo remove all
+completely remove all resources in all cloud-providers under management of this project
+
+ldc-demo get-kubeconfig <name>
+creates a local copy of the kubeconfig usable by the local user to access the cluster via kubectl
+
+ldc-demo apply config <config> <name>
+<config> is a pre-defined losantsync CR configuration
+<name> is the name of a resource configuration that has been deployed
+
+
+
+For reference projects, have a look at 
+https://github.com/mak3r/terraform-rancher
+https://github.com/mak3r/terraform-downstream
+https://github.com/mak3r/fleet-demo-src
+https://github.com/mak3r/nll-scheduler
+
+For the command line tool, will you use rust or shell scripting or somethign else?
+There is another resource required for the losantsync CR to work and that is the losant-provisioning-credentials which require an api token from losant. This should be somethign that does not every get commited to the project but is set in an opentofu configuration or in the most secure way possible.  
+
+The project plan can and should be broken into small efforts. For example, the initial set of ldc-demo commands to implement need only be:
+ldc-demo create
+ldc-demo create ha
+ldc-demo list deployed
+ldc-demo help
+ldc-demo remove all
+ldc-demo get-kubeconfig
+
+As you can see, there are a number of personas available in our CLAUDE.md and as we develop this project we will want to be sure to break it up into smaller parts for each of the available persona's to work on. At the outset, we need a quickstart document to go along with the minimum viable product.

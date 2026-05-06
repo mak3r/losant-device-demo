@@ -1,0 +1,216 @@
+package commands
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+	"text/tabwriter"
+
+	"github.com/spf13/cobra"
+
+	"github.com/mak3r/ldc-demo/internal/state"
+	"github.com/mak3r/ldc-demo/internal/tofu"
+)
+
+var (
+	createSize       string
+	createK3sChannel string
+	createSSHKey     string
+	createRegion     string
+)
+
+var createCmd = &cobra.Command{
+	Use:   "create [ha] <name> <cloud-provider>",
+	Short: "Create a k3s cluster (prefix with 'ha' for 3-node HA)",
+	Long: `Create a single-node or HA k3s cluster on the specified cloud provider.
+
+Examples:
+  ldc-demo create my-demo aws
+  ldc-demo create ha my-ha-demo aws --size medium`,
+	Args:    cobra.RangeArgs(2, 3),
+	RunE:    runCreate,
+}
+
+func init() {
+	createCmd.Flags().StringVar(&createSize, "size", "small", "instance size: small, medium, large")
+	createCmd.Flags().StringVar(&createK3sChannel, "k3s-channel", "stable", "k3s release channel")
+	createCmd.Flags().StringVar(&createSSHKey, "ssh-key", "", "path to SSH public key (default: ~/.ssh/id_rsa.pub)")
+	createCmd.Flags().StringVar(&createRegion, "region", "us-east-1", "cloud provider region")
+}
+
+func runCreate(cmd *cobra.Command, args []string) error {
+	ha := false
+	var name, provider string
+
+	if args[0] == "ha" {
+		if len(args) != 3 {
+			return fmt.Errorf("usage: ldc-demo create ha <name> <cloud-provider>")
+		}
+		ha = true
+		name = args[1]
+		provider = args[2]
+	} else {
+		if len(args) != 2 {
+			return fmt.Errorf("usage: ldc-demo create <name> <cloud-provider>")
+		}
+		name = args[0]
+		provider = args[1]
+	}
+
+	if !isValidSize(createSize) {
+		return fmt.Errorf("invalid --size %q: must be small, medium, or large", createSize)
+	}
+	if provider != "aws" {
+		return fmt.Errorf("unsupported cloud provider %q: only 'aws' is supported in this version", provider)
+	}
+
+	if err := checkRequiredEnv("LDC_LOSANT_API_TOKEN", "LDC_LOSANT_APPLICATION_ID"); err != nil {
+		return err
+	}
+
+	sshPublicKey := createSSHKey
+	if sshPublicKey == "" {
+		sshPublicKey = envOrDefault("LDC_SSH_PUBLIC_KEY", filepath.Join(os.Getenv("HOME"), ".ssh", "id_rsa.pub"))
+	}
+	if _, err := os.Stat(sshPublicKey); err != nil {
+		return fmt.Errorf("SSH public key not found at %s (set --ssh-key or LDC_SSH_PUBLIC_KEY)", sshPublicKey)
+	}
+
+	moduleName := "aws-k3s-single"
+	nodeCount := 1
+	if ha {
+		moduleName = "aws-k3s-ha"
+		nodeCount = 3
+	}
+
+	reg, err := state.Load(statePath())
+	if err != nil {
+		return fmt.Errorf("load state: %w", err)
+	}
+
+	cluster, err := reg.Add(state.ClusterState{
+		Name:          name,
+		CloudProvider: provider,
+		NodeCount:     nodeCount,
+		Size:          createSize,
+		Region:        createRegion,
+		Module:        moduleName,
+	})
+	if err != nil {
+		return err
+	}
+
+	varFile, cleanup, err := writeTempVarFile(cluster, sshPublicKey)
+	if err != nil {
+		return fmt.Errorf("prepare var file: %w", err)
+	}
+	defer cleanup()
+
+	runner := &tofu.Runner{
+		Binary:    tofuBinary,
+		ModuleDir: moduleDir(moduleName),
+		WorkDir:   workspaceDir(cluster.UID),
+		Workspace: cluster.UID,
+	}
+
+	ctx := context.Background()
+	fmt.Printf("Initializing OpenTofu for cluster %q ...\n", name)
+	if err := runner.Init(ctx); err != nil {
+		return fmt.Errorf("tofu init: %w", err)
+	}
+
+	fmt.Printf("Provisioning %s cluster %q on %s (size: %s) ...\n", clusterType(ha), name, provider, createSize)
+	extraVars := map[string]string{
+		"losant_api_token":      os.Getenv("LDC_LOSANT_API_TOKEN"),
+		"losant_application_id": os.Getenv("LDC_LOSANT_APPLICATION_ID"),
+		"k3s_channel":           createK3sChannel,
+	}
+	if err := runner.Apply(ctx, varFile, extraVars); err != nil {
+		return fmt.Errorf("tofu apply: %w", err)
+	}
+
+	// Persist state only after successful apply.
+	if err := reg.Save(statePath()); err != nil {
+		return fmt.Errorf("save state: %w", err)
+	}
+
+	fmt.Println()
+	printClusters(os.Stdout, []state.ClusterState{cluster})
+	fmt.Printf("\nRun 'ldc-demo get-kubeconfig %s' to fetch the kubeconfig.\n", name)
+	return nil
+}
+
+func clusterType(ha bool) string {
+	if ha {
+		return "HA"
+	}
+	return "single-node"
+}
+
+func isValidSize(s string) bool {
+	return s == "small" || s == "medium" || s == "large"
+}
+
+func checkRequiredEnv(keys ...string) error {
+	var missing []string
+	for _, k := range keys {
+		if os.Getenv(k) == "" {
+			missing = append(missing, k)
+		}
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("required environment variable(s) not set: %s\nSee .env.template for setup instructions.", strings.Join(missing, ", "))
+	}
+	return nil
+}
+
+func envOrDefault(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
+}
+
+// writeTempVarFile copies the resource size template into a temporary file and
+// adds cluster-specific variables. Returns path and a cleanup func.
+func writeTempVarFile(cluster state.ClusterState, sshPublicKey string) (string, func(), error) {
+	templatePath := filepath.Join(repoRoot(), "tofu", "resources", cluster.Size+".tfvars.template")
+	templateData, err := os.ReadFile(templatePath)
+	if err != nil {
+		return "", func() {}, fmt.Errorf("read size template %s: %w", templatePath, err)
+	}
+
+	extra := fmt.Sprintf(`
+cluster_name         = %q
+aws_region           = %q
+ssh_public_key_path  = %q
+`, cluster.Name, cluster.Region, sshPublicKey)
+
+	content := string(templateData) + extra
+
+	f, err := os.CreateTemp("", "ldc-demo-*.tfvars")
+	if err != nil {
+		return "", func() {}, fmt.Errorf("create temp var file: %w", err)
+	}
+	if _, err := f.WriteString(content); err != nil {
+		f.Close()
+		return "", func() {}, err
+	}
+	f.Close()
+
+	return f.Name(), func() { os.Remove(f.Name()) }, nil
+}
+
+func printClusters(w io.Writer, clusters []state.ClusterState) {
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "UID\tNAME\tPROVIDER\tNODES\tSIZE\tCREATED")
+	for _, c := range clusters {
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%s\t%s\n",
+			c.UID, c.Name, c.CloudProvider, c.NodeCount, c.Size,
+			c.CreatedAt.Format("2006-01-02 15:04"))
+	}
+	tw.Flush()
+}

@@ -1,0 +1,19 @@
+# Default LosantSync CR configuration.
+# Reports cluster health metrics every 5 minutes.
+# Apply with: ldc-demo apply config default <cluster-name>
+apiVersion: losant.com/v1alpha1
+kind: LosantSync
+metadata:
+  name: losantsync-default
+  namespace: losant-system
+spec:
+  syncInterval: "5m"
+  metrics:
+    nodes: true
+    pods: true
+    deployments: true
+    events: true
+    storage: false
+  reporting:
+    mode: rest
+    batchSize: 10

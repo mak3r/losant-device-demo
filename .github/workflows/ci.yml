@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop, "feature/**", "persona/**"]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build
+        run: make build
+
+      - name: Test
+        run: make test
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+
+  tofu-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: latest
+
+      - name: OpenTofu format check
+        run: tofu fmt -check -recursive tofu/
+
+      - name: Validate aws-k3s-single
+        run: |
+          tofu -chdir=tofu/modules/aws-k3s-single init -backend=false -input=false
+          tofu -chdir=tofu/modules/aws-k3s-single validate
+
+      - name: Validate aws-k3s-ha
+        run: |
+          tofu -chdir=tofu/modules/aws-k3s-ha init -backend=false -input=false
+          tofu -chdir=tofu/modules/aws-k3s-ha validate
