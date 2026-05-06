@@ -24,6 +24,60 @@ Every piece of work is owned by exactly one persona. A persona only modifies fil
 | **product-designer** | `persona/product-designer` | `.claude/plans/**`, GitHub Issues (create only), `docs/architecture.md` (joint with docs) |
 | **triage** | — (no commits) | Creates GitHub issues only; evaluates whether a reported issue is valid by code analysis and human intake interview |
 
+## Worktree Setup (Required Before Starting Work)
+
+Each persona works in an isolated git worktree so multiple personas can be active simultaneously without branch conflicts. **Never do persona work directly in the main clone.**
+
+### Directory layout
+
+```
+~/projects/
+├── losant-device-demo/                    ← main clone (trunk/main, product-designer, merge-manager)
+└── losant-device-demo-worktrees/
+    ├── security/                          ← persona/security branch
+    ├── gitops-manager/                    ← persona/gitops-manager branch
+    ├── docs/                              ← persona/docs branch
+    ├── qa/                                ← persona/qa branch
+    └── developer-<feature-name>/          ← feature/developer/<name> branch
+```
+
+### Creating a worktree for a new persona branch
+
+```bash
+# From the main clone directory
+git worktree add ../losant-device-demo-worktrees/<persona> -b <branch-name>
+
+# Examples:
+git worktree add ../losant-device-demo-worktrees/docs -b persona/docs
+git worktree add ../losant-device-demo-worktrees/developer-state -b feature/developer/state-registry
+```
+
+### Resuming work on an existing persona branch
+
+```bash
+git worktree add ../losant-device-demo-worktrees/<persona> <branch-name>
+
+# Example:
+git worktree add ../losant-device-demo-worktrees/security persona/security
+```
+
+### Starting a Claude session for a persona
+
+Open a terminal in the persona's worktree directory and start Claude there:
+```bash
+cd ~/projects/losant-device-demo-worktrees/security
+claude
+```
+
+The Claude session's working directory determines which persona context is active.
+
+### Removing a worktree after a branch is merged
+
+```bash
+git worktree remove ../losant-device-demo-worktrees/<persona>
+# The branch itself is deleted after the PR is merged via the merge-manager
+```
+
 ### Hard Rules
 
 - **developer** never modifies `*_test.go` files, `tofu/**`, or `.github/workflows/**`
