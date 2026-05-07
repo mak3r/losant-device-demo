@@ -34,7 +34,5 @@ write_files:
         applicationId: "${losant_application_id}"
 
 runcmd:
-  # Install k3s using the official install script.
-  - curl -sfL https://get.k3s.io | INSTALL_K3S_CHANNEL=${k3s_channel} sh -
-  # Wait for k3s to be ready before completing cloud-init.
+  - curl -sfL https://get.k3s.io | K3S_TOKEN="${k3s_token}" INSTALL_K3S_CHANNEL=${k3s_channel} sh -
   - until kubectl get nodes 2>/dev/null | grep -q Ready; do sleep 5; done

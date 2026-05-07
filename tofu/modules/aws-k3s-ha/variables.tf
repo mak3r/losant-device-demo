@@ -49,3 +49,9 @@ variable "losant_application_id" {
   type        = string
   description = "Losant Application ID."
 }
+
+variable "worker_count" {
+  type        = number
+  description = "Number of worker (agent) nodes to add. Pass a higher value to scale out."
+  default     = 0
+}
