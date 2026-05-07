@@ -16,7 +16,7 @@ func fakeTofu(t *testing.T) string {
 	dir := t.TempDir()
 	script := filepath.Join(dir, "tofu")
 	src := "#!/bin/sh\nif [ \"$1\" = \"output\" ]; then\n  printf 'fake-value'\nelse\n  echo \"$@\"\nfi\n"
-	if err := os.WriteFile(script, []byte(src), 0700); err != nil {
+	if err := os.WriteFile(script, []byte(src), 0700); err != nil { //nolint:gosec // G306: fake test script must be executable
 		t.Fatalf("write fake tofu: %v", err)
 	}
 	return script
