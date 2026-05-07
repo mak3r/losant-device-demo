@@ -1,10 +1,10 @@
 #cloud-config
 
 runcmd:
-  # Wait for the init server to be ready before joining.
-  # The fixed sleep is a best-effort approach for a demo tool.
-  # See docs/architecture.md for the known limitation and future improvement.
-  - sleep 90
+  - |
+    until curl -sk https://${server0_ip}:6443/readyz | grep -q ok; do
+      echo "Waiting for k3s API..."; sleep 10
+    done
   - |
     curl -sfL https://get.k3s.io | \
       K3S_TOKEN="${k3s_token}" \
