@@ -51,7 +51,7 @@ func fakeAWSScript(t *testing.T, responseBySubcmd map[string]string) {
 		cases += fmt.Sprintf("        %s) echo %q ;;\n", subcmd, out)
 	}
 	src := fmt.Sprintf("#!/bin/sh\ncase \"$2\" in\n%s        *) echo \"unsupported: $2\" >&2; exit 1 ;;\nesac\n", cases)
-	if err := os.WriteFile(script, []byte(src), 0700); err != nil {
+	if err := os.WriteFile(script, []byte(src), 0700); err != nil { //nolint:gosec // G306: fake test script must be executable
 		t.Fatalf("write fake aws: %v", err)
 	}
 	old := os.Getenv("PATH")
