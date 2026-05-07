@@ -24,6 +24,11 @@ jobs:
         run: make test
 
   lint:
+    # Skip on direct pushes to feature/persona branches — the pull_request event covers those.
+    if: >-
+      github.event_name == 'pull_request' ||
+      github.ref == 'refs/heads/main' ||
+      github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
