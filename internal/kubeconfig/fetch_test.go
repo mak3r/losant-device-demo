@@ -28,13 +28,6 @@ func genSSHKey(t *testing.T) string {
 	return f
 }
 
-// rewriteServer mirrors the inline rewrite logic in Fetch for unit testing.
-// Once the developer extracts this to fetch.go as a package-level function,
-// remove this definition and the tests will compile against the real one.
-func rewriteServer(content, ip string) string {
-	return strings.ReplaceAll(content, "127.0.0.1", ip)
-}
-
 func TestRewriteServerReplacesLoopback(t *testing.T) {
 	input := "server: https://127.0.0.1:6443\ncertificate-authority: 127.0.0.1"
 	got := rewriteServer(input, "10.0.1.5")
