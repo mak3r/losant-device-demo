@@ -9,6 +9,18 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+// sshDial establishes SSH connections. Tests override this to redirect to an
+// in-process server without needing a real sshd.
+var sshDial = func(network, addr string, cfg *ssh.ClientConfig) (*ssh.Client, error) {
+	return ssh.Dial(network, addr, cfg)
+}
+
+// rewriteServer replaces the loopback address in a kubeconfig with the public
+// server IP so the kubeconfig works from outside the cluster.
+func rewriteServer(content, ip string) string {
+	return strings.ReplaceAll(content, "127.0.0.1", ip)
+}
+
 // Fetch retrieves the kubeconfig from a remote k3s server via SSH and writes
 // it to destDir/<clusterName>.yaml. Returns the path written.
 func Fetch(serverIP, sshUser, sshPrivateKeyPath, clusterName, destDir string) (string, error) {
@@ -23,7 +35,7 @@ func Fetch(serverIP, sshUser, sshPrivateKeyPath, clusterName, destDir string) (s
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(), //nolint:gosec // demo tool — no host key verification
 	}
 
-	client, err := ssh.Dial("tcp", serverIP+":22", cfg)
+	client, err := sshDial("tcp", serverIP+":22", cfg)
 	if err != nil {
 		return "", fmt.Errorf("ssh dial %s: %w", serverIP, err)
 	}
@@ -40,9 +52,7 @@ func Fetch(serverIP, sshUser, sshPrivateKeyPath, clusterName, destDir string) (s
 		return "", fmt.Errorf("read k3s kubeconfig: %w", err)
 	}
 
-	// Replace the loopback address with the public server IP so the kubeconfig
-	// works from outside the cluster.
-	content := strings.ReplaceAll(string(raw), "127.0.0.1", serverIP)
+	content := rewriteServer(string(raw), serverIP)
 
 	if err := os.MkdirAll(destDir, 0700); err != nil {
 		return "", fmt.Errorf("create kubeconfig dir: %w", err)
