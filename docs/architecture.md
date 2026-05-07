@@ -132,7 +132,7 @@ AWS credentials are consumed by the AWS SDK in the tofu process and are never wr
 
 | Limitation | Detail | Tracking |
 |---|---|---|
-| HA join timing | Worker nodes wait a fixed 90 seconds before joining the cluster. On slow instance types the server may not be ready in time, causing workers to fail silently. | Issue #7 |
+| HA join timing | Agent nodes poll the server's `/readyz` endpoint every 10 seconds before joining. If the server takes longer than expected, agents retry until timeout. No fixed sleep delay. | — |
 | Token in user-data | Losant API token is embedded in EC2 user-data and visible to AWS users with sufficient IAM permissions. | Issue #3 |
 | Local tofu state | OpenTofu state is stored locally in `~/.ldc-demo/`. No S3 backend, no state locking, no multi-user support. | — |
 | State file concurrency | `state.json` is read/written without a file lock. Concurrent CLI invocations can corrupt the registry. | — |

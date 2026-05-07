@@ -86,11 +86,9 @@ kubectl --kubeconfig ~/.ldc-demo/kubeconfigs/my-demo.yaml get pods -n losant-sys
 ldc-demo create ha my-ha-demo aws --size medium
 ```
 
-This provisions 3 `t3.medium` instances with embedded etcd HA. The first server bootstraps the cluster; the other two join after a 90-second delay.
+This provisions 3 `t3.medium` instances with embedded etcd HA. The first server bootstraps the cluster; the agent nodes poll the server's k3s API (`/readyz`) every 10 seconds and join automatically once it is ready — no fixed sleep.
 
 **Expected time:** 6–10 minutes
-
-**Note:** The fixed join delay is a known MVP limitation. If nodes fail to join, see [Troubleshooting](#troubleshooting).
 
 ## 6. Clean up
 
@@ -112,7 +110,7 @@ This destroys all EC2 instances, security groups, Elastic IPs, and key pairs cre
 
 **SSH connection refused on `get-kubeconfig`:** The instance may still be running cloud-init. Wait 2–3 minutes and retry.
 
-**HA nodes not joining:** SSH into the server and check `journalctl -u k3s`. The 90-second join delay may need to be increased for slow instance types. This is a known MVP limitation.
+**HA nodes not joining:** SSH into the server and check `journalctl -u k3s`. Agent nodes poll for server readiness every 10 seconds; if they fail to join after several minutes, the server may have failed to start — check the server node's k3s service logs.
 
 **Losant controller not running:** Check `kubectl get events -n losant-system`. If the Helm chart pull failed, verify the Helm repo URL is reachable from the cluster.
 
