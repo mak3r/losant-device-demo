@@ -27,6 +27,21 @@ The following are excluded from version control:
 
 If `ldc-demo get-kubeconfig` saves a kubeconfig, ensure it lands outside the repository root, or that the filename matches one of the patterns above.
 
+## Accepted Risk: EC2 User-Data Token Exposure
+
+The `losant_api_token` (and, in the HA module, the `k3s_token`) are injected into EC2 user-data via the `cloud-init.yaml.tpl` templates. User-data is readable by any IAM principal with `ec2:DescribeInstanceAttribute` on the instance.
+
+**Risk:** Anyone with describe access to the EC2 instance can retrieve the Losant API token in plaintext from the user-data field.
+
+**Why this is acceptable for MVP:** The Losant API token is scoped to a single application and is used only to provision the losant-device operator. A demo cluster is short-lived (under 4 hours). Exposing this token does not grant access to the Kubernetes cluster or to other AWS resources.
+
+**Mitigation path (future):** Store `LDC_LOSANT_API_TOKEN` in AWS Secrets Manager at create time and have cloud-init fetch it via `aws secretsmanager get-secret-value` using the instance's IAM role. This requires an IAM role and instance profile in the OpenTofu modules. Tracked for `persona/gitops-manager` as an optional enhancement — **not required for MVP**.
+
+**Mitigation in place now:**
+- The secret manifest written to disk by cloud-init has `permissions: "0600"`.
+- `runcmd` does not use `set -x` or any shell debug flag that would echo the token to `/var/log/cloud-init-output.log`.
+- The token is not surfaced in any OpenTofu output.
+
 ## Accepted Risks: Open Security Group Rules
 
 Both the `aws-k3s-single` and `aws-k3s-ha` OpenTofu modules expose two ports to `0.0.0.0/0` by default:
@@ -49,6 +64,39 @@ Both the `aws-k3s-single` and `aws-k3s-ha` OpenTofu modules expose two ports to 
 3. **Use an SSH bastion or VPN.** Place the nodes in a private subnet and only expose 6443 through an internal load balancer.
 
 4. **Enable AWS Security Hub or GuardDuty.** For any cluster touching real data, enable threat detection on the AWS account.
+
+## OpenTofu Module Security Review
+
+Formal review completed on both `aws-k3s-single` and `aws-k3s-ha` modules.
+
+### Variables
+
+| Variable | Module | `sensitive = true` |
+|---|---|---|
+| `losant_api_token` | both | ✓ |
+| `k3s_token` | aws-k3s-ha only | ✓ |
+
+No sensitive variables are missing the `sensitive` attribute.
+
+### Outputs
+
+No sensitive values are exposed in `outputs.tf` for either module. Outputs are limited to public IPs, cluster name, SSH username, and the remote kubeconfig path.
+
+### Hardcoded Credentials
+
+None found. All secret values flow through Terraform variables injected at `tofu apply` time.
+
+### cloud-init File Permissions
+
+Both the `losant-device.yaml` Helm manifest and the `losant-provisioning-credentials.yaml` secret manifest are written with `permissions: "0600"`. No token-bearing file is world-readable.
+
+### runcmd Logging
+
+No `set -x` or equivalent shell debug flag is present in any `runcmd` block. Token values passed as environment variables to `curl | sh` pipelines are not echoed to `/var/log/cloud-init-output.log`.
+
+### Security Group `allowed_cidr` Variable
+
+**Decision: approved.** Adding a `var.allowed_cidr` variable (default `"0.0.0.0/0"`) to both modules is the right pattern. It preserves the zero-friction default while letting users restrict access at `ldc-demo create` time without editing HCL. Implementation is a `persona/gitops-manager` task (see handoff issue).
 
 ## Recommendations Summary
 
