@@ -31,6 +31,7 @@ var applySSHKey string
 func init() {
 	applyConfigCmd.Flags().StringVar(&applySSHKey, "ssh-key", "", "path to SSH private key (default: ~/.ssh/id_rsa or LDC_SSH_PRIVATE_KEY)")
 	applyCmd.AddCommand(applyConfigCmd)
+	rootCmd.AddCommand(applyCmd)
 }
 
 func runApplyConfig(cmd *cobra.Command, args []string) error {

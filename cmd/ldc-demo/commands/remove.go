@@ -40,6 +40,7 @@ func init() {
 	removeNameCmd.Flags().StringVar(&removeProvider, "provider", "", "cloud provider to disambiguate clusters with the same name")
 	removeCmd.AddCommand(removeAllCmd)
 	removeCmd.AddCommand(removeNameCmd)
+	rootCmd.AddCommand(removeCmd)
 }
 
 func runRemoveAll(cmd *cobra.Command, args []string) error {

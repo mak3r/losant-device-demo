@@ -43,6 +43,7 @@ var failSSHKey string
 func init() {
 	failPodCmd.Flags().StringVar(&failSSHKey, "ssh-key", "", "SSH private key for kubeconfig fetch (default: LDC_SSH_PRIVATE_KEY or ~/.ssh/id_rsa)")
 	failCmd.AddCommand(failNodeCmd, failNetworkCmd, failPodCmd)
+	rootCmd.AddCommand(failCmd)
 }
 
 func runFailNode(cmd *cobra.Command, args []string) error {

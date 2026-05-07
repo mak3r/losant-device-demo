@@ -22,6 +22,10 @@ outputs: uid, name, cloud-provider, node count.`,
 	RunE: runScale,
 }
 
+func init() {
+	rootCmd.AddCommand(scaleCmd)
+}
+
 func runScale(cmd *cobra.Command, args []string) error {
 	name := args[0]
 
