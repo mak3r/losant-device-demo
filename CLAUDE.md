@@ -32,8 +32,8 @@ Each persona works in an isolated git worktree so multiple personas can be activ
 
 | Persona | Worktree | Notes |
 |---|---|---|
-| **developer** | `developer-<feature-name>/` | One worktree per feature branch — created fresh for each issue |
-| **test-engineer** | *(none)* | Works inside the developer's worktree on the same branch |
+| **developer** | `development/` | Persistent — start Claude here; create feature branches within the session |
+| **test-engineer** | `development/` | Same persistent worktree as developer — start a separate Claude session from the same directory |
 | **security** | `security/` | Persistent — one branch for all security work |
 | **qa** | `qa/` | Persistent — one branch for all QA work |
 | **gitops-manager** | `gitops-manager/` | Persistent — one branch for all infra/pipeline work |
@@ -53,7 +53,7 @@ Each persona works in an isolated git worktree so multiple personas can be activ
     ├── docs/                              ← persona/docs
     ├── qa/                                ← persona/qa
     ├── product-designer/                  ← persona/product-designer
-    └── developer-<feature-name>/          ← feature/developer/<name>  (one per active feature)
+    └── development/                       ← developer + test-engineer (feature branches switched within)
 ```
 
 ### Current worktree status
@@ -66,6 +66,7 @@ losant-device-demo-worktrees/gitops-manager/    → persona/gitops-manager
 losant-device-demo-worktrees/docs/              → persona/docs
 losant-device-demo-worktrees/qa/               → persona/qa
 losant-device-demo-worktrees/product-designer/  → persona/product-designer
+losant-device-demo-worktrees/development/       → develop (developer/test-engineer feature work)
 ```
 
 ### Starting a Claude session for a persona
@@ -79,18 +80,40 @@ claude
 
 The Claude session's working directory determines which persona context is active.
 
-### Creating a developer worktree for a new feature
+### Starting a developer or test-engineer session
 
-The developer persona creates a new worktree for each issue. From the main clone:
+Both the developer and test-engineer always work from the persistent `development/` worktree. No new worktree is created per feature — instead, branch within the same session:
 
 ```bash
-# Replace <feature-name> with a short descriptor matching the issue (e.g. remove-single, scale, fail-fix)
-git worktree add ../losant-device-demo-worktrees/developer-<feature-name> -b feature/developer/<feature-name>
-cd ../losant-device-demo-worktrees/developer-<feature-name>
+cd ~/projects/losant-device-demo-worktrees/development
 claude
 ```
 
-The test-engineer opens the same worktree directory in their own Claude session — no separate worktree needed.
+Once inside the Claude session, pick up a feature issue by creating a branch from current `main`:
+
+```bash
+git fetch origin
+git checkout -b feature/developer/<feature-name> origin/main
+# e.g. git checkout -b feature/developer/state-registry origin/main
+```
+
+To move on to the next feature after merging, switch branches again in the same session:
+
+```bash
+git fetch origin
+git checkout -b feature/developer/<next-feature> origin/main
+```
+
+The test-engineer starts their own separate Claude session from the same `development/` directory and checks out the same feature branch:
+
+```bash
+# In a new terminal:
+cd ~/projects/losant-device-demo-worktrees/development
+claude
+# Then inside Claude: git checkout feature/developer/<feature-name>
+```
+
+Both personas push to `feature/developer/<name>` — a single PR contains both implementation and tests.
 
 ### Resuming work on a persona branch after a restart
 
@@ -109,7 +132,7 @@ git worktree remove ../losant-device-demo-worktrees/<persona>
 # The branch is deleted by the merge-manager after the PR merges
 ```
 
-Developer worktrees should be removed after their PR merges. Persistent persona worktrees stay for the life of the project.
+All persona worktrees — including `development/` — are persistent and stay for the life of the project. Do not remove them after a PR merges; just switch to the next feature branch within the same worktree.
 
 ### Hard Rules
 

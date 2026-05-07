@@ -8,15 +8,15 @@ Ask the user which persona they are invoking, or infer it from the current worki
 
 | Current directory ends with... | Persona |
 |---|---|
-| `losant-device-demo` (main clone) | merge-manager, triage, or developer/test-engineer setup |
+| `losant-device-demo` (main clone) | merge-manager or triage |
 | `losant-device-demo-worktrees/security` | security |
 | `losant-device-demo-worktrees/gitops-manager` | gitops-manager |
 | `losant-device-demo-worktrees/docs` | docs |
 | `losant-device-demo-worktrees/qa` | qa |
 | `losant-device-demo-worktrees/product-designer` | product-designer |
-| `losant-device-demo-worktrees/developer-*` | developer |
+| `losant-device-demo-worktrees/development` | developer or test-engineer |
 
-If the directory is a `developer-*` worktree, prompt the test-engineer to use the same directory.
+If the directory is `development`, the active persona is either developer or test-engineer — ask the user which one if not obvious from context.
 
 ## Step 2 — Verify environment
 
@@ -63,25 +63,30 @@ Replace `<name>` with the persona name (e.g. `persona/developer`, `persona/secur
 
 Present the list to the user and ask which issue to work on, or suggest the lowest-numbered unblocked issue.
 
-## Step 5 — Set up the worktree (developer and test-engineer only)
+## Step 5 — Create the feature branch (developer and test-engineer only)
 
-**For all other personas:** worktrees already exist — skip to Step 6.
+**For all other personas:** worktrees already exist and have a fixed branch — skip to Step 6.
 
-**For developer:** after picking an issue, create a feature worktree from the main clone:
+**For developer and test-engineer:** you are already in the correct worktree (`development/`). After picking an issue, create a feature branch from `origin/main` within this same session:
 
 ```bash
-# Run from losant-device-demo/ (main clone)
-FEATURE=<short-descriptor-matching-issue>
-git worktree add ../losant-device-demo-worktrees/developer-$FEATURE -b feature/developer/$FEATURE
+git fetch origin
+git checkout -b feature/developer/<short-descriptor> origin/main
+# e.g. git checkout -b feature/developer/state-registry origin/main
 
-# Confirm
-git worktree list
+# Confirm branch
+git branch --show-current
 ```
 
-Then instruct the user:
-> "Your worktree is ready at `../losant-device-demo-worktrees/developer-<feature>`. Open a new terminal, cd into that directory, and start a new Claude session there to begin implementation. The test-engineer should start their Claude session from the same directory."
+The test-engineer starts their own separate Claude session from this same `development/` directory, then checks out the same branch:
 
-**Do not begin implementation in the current (main clone) session.** The main clone stays on `main`.
+```bash
+# The test-engineer runs in their own terminal:
+cd ~/projects/losant-device-demo-worktrees/development
+# Then inside Claude: git checkout feature/developer/<short-descriptor>
+```
+
+**Do not create a new worktree directory per feature.** The `development/` worktree is permanent — switch branches within it for each new feature.
 
 ## Step 6 — Confirm readiness and begin work
 
