@@ -46,6 +46,7 @@ var fixSSHKey string
 func init() {
 	fixPodCmd.Flags().StringVar(&fixSSHKey, "ssh-key", "", "SSH private key for kubeconfig fetch (default: LDC_SSH_PRIVATE_KEY or ~/.ssh/id_rsa)")
 	fixCmd.AddCommand(fixNodeCmd, fixNetworkCmd, fixPodCmd)
+	rootCmd.AddCommand(fixCmd)
 }
 
 func runFixNode(cmd *cobra.Command, args []string) error {

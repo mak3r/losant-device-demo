@@ -31,6 +31,7 @@ var listConfigsCmd = &cobra.Command{
 func init() {
 	listCmd.AddCommand(listDeployedCmd)
 	listCmd.AddCommand(listConfigsCmd)
+	rootCmd.AddCommand(listCmd)
 }
 
 func runListConfigs(cmd *cobra.Command, args []string) error {

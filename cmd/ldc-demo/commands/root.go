@@ -42,7 +42,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&stateDir, "state-dir", defaultStateDir, "directory for ldc-demo state and workspaces")
 	rootCmd.PersistentFlags().StringVar(&tofuBinary, "tofu-binary", "", "path to tofu binary (default: resolved from PATH)")
 
-	rootCmd.AddCommand(createCmd, listCmd, removeCmd, getKubeconfigCmd, scaleCmd, applyCmd, failCmd, fixCmd)
+	// Commands register themselves via init() in their own files.
 }
 
 func validateEnvironment(cmd *cobra.Command, args []string) error {

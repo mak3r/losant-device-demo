@@ -39,6 +39,7 @@ func init() {
 	createCmd.Flags().StringVar(&createK3sChannel, "k3s-channel", "stable", "k3s release channel")
 	createCmd.Flags().StringVar(&createSSHKey, "ssh-key", "", "path to SSH public key (default: ~/.ssh/id_rsa.pub)")
 	createCmd.Flags().StringVar(&createRegion, "region", "us-east-1", "cloud provider region")
+	rootCmd.AddCommand(createCmd)
 }
 
 func runCreate(cmd *cobra.Command, args []string) error {

@@ -29,6 +29,7 @@ Use with kubectl:
 
 func init() {
 	getKubeconfigCmd.Flags().StringVar(&getKubeconfigSSHKey, "ssh-key", "", "path to SSH private key (default: ~/.ssh/id_rsa or LDC_SSH_PRIVATE_KEY)")
+	rootCmd.AddCommand(getKubeconfigCmd)
 }
 
 func runGetKubeconfig(cmd *cobra.Command, args []string) error {
