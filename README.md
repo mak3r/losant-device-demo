@@ -77,6 +77,10 @@ See [docs/quickstart.md](docs/quickstart.md) for the full walkthrough, including
 
 Global flags: `--state-dir <path>` (default: `~/.ldc-demo`), `--tofu-binary <path>` (falls back to `terraform` if `tofu` is not found).
 
+## Security
+
+ldc-demo is designed for demo environments. The defaults (open security groups, Losant credentials in EC2 user-data) are intentionally permissive for ease of use. Before running real workloads, read [docs/security.md](docs/security.md) for the full credential flow, accepted risks, and production mitigations.
+
 ## License
 
 Apache 2.0 — see [LICENSE](LICENSE).

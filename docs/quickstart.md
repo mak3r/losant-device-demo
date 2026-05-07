@@ -118,7 +118,11 @@ This destroys all EC2 instances, security groups, Elastic IPs, and key pairs cre
 
 ## Security notes
 
-- The Losant API token is injected into EC2 user-data via cloud-init. It is not stored in any local file but is visible to AWS users with `ec2:DescribeInstanceAttribute` permission on the instance.
-- AWS credentials are never stored by ldc-demo. They are read from environment variables or `~/.aws/credentials`.
-- Cluster state is stored at `~/.ldc-demo/state.json` (mode `0600`). This file contains cluster metadata but no credentials.
-- Security groups allow SSH (22) and k3s API (6443) from all IPs (`0.0.0.0/0`). For production use, restrict these to known CIDR ranges.
+> **Demo use only.** The defaults below are intentionally permissive for ease of use. Read [`docs/security.md`](security.md) before running real workloads.
+
+- **Losant API token in EC2 user-data** — the token is visible to any AWS user with `ec2:DescribeInstanceAttribute` permission. Accepted risk for demos; use AWS Secrets Manager for production.
+- **Open security groups** — SSH (22) and k3s API (6443) are open to `0.0.0.0/0` by default. Use `--allowed-cidr` to restrict access to your IP or corporate range.
+- AWS credentials are never written to disk by ldc-demo; they are read from environment variables or `~/.aws/credentials`.
+- Cluster state at `~/.ldc-demo/state.json` (mode `0600`) contains cluster metadata but no credentials.
+
+For the full credential flow, accepted risks, and mitigation recommendations see [`docs/security.md`](security.md).
