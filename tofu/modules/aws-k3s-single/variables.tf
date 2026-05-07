@@ -42,3 +42,16 @@ variable "losant_application_id" {
   type        = string
   description = "Losant Application ID."
 }
+
+variable "k3s_token" {
+  type        = string
+  description = "Shared secret for k3s cluster formation. Generated automatically if empty."
+  sensitive   = true
+  default     = ""
+}
+
+variable "worker_count" {
+  type        = number
+  description = "Number of worker (agent) nodes to add. Pass a higher value to scale out."
+  default     = 0
+}
