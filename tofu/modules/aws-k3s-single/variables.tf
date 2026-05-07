@@ -55,3 +55,9 @@ variable "worker_count" {
   description = "Number of worker (agent) nodes to add. Pass a higher value to scale out."
   default     = 0
 }
+
+variable "allowed_cidr" {
+  type        = string
+  description = "CIDR to allow inbound SSH and k3s API access. Defaults to 0.0.0.0/0 for demo use."
+  default     = "0.0.0.0/0"
+}

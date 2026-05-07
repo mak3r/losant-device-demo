@@ -46,7 +46,7 @@ resource "aws_security_group" "ldc_demo" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # tighten this for production use
+    cidr_blocks = [var.allowed_cidr]
   }
 
   ingress {
@@ -54,7 +54,7 @@ resource "aws_security_group" "ldc_demo" {
     from_port   = 6443
     to_port     = 6443
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [var.allowed_cidr]
   }
 
   ingress {
