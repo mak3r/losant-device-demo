@@ -162,7 +162,7 @@ resource "aws_instance" "server_init" {
     k3s_token             = local.k3s_token
     losant_secret_arn     = local.losant_secret_arn
     losant_application_id = var.losant_application_id
-  }) : templatefile("${path.module}/cloud-init-server.yaml.tpl", {
+    }) : templatefile("${path.module}/cloud-init-server.yaml.tpl", {
     k3s_channel           = var.k3s_channel
     k3s_token             = local.k3s_token
     losant_api_token      = var.losant_api_token
