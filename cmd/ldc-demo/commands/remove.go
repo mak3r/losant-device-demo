@@ -82,7 +82,10 @@ func runRemoveAll(cmd *cobra.Command, args []string) error {
 			fmt.Fprintf(os.Stderr, "error destroying %s: %v\n", cluster.Name, err)
 			lastErr = err
 		} else {
-			reg.Remove(cluster.UID)
+			if err := reg.Remove(cluster.UID); err != nil {
+				fmt.Fprintf(os.Stderr, "warning: failed to remove %s from state: %v\n", cluster.Name, err)
+				lastErr = err
+			}
 			if err := reg.Save(statePath()); err != nil {
 				fmt.Fprintf(os.Stderr, "warning: failed to save state after removing %s: %v\n", cluster.Name, err)
 			}

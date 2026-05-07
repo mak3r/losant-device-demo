@@ -42,6 +42,7 @@ func (r *Runner) run(ctx context.Context, args ...string) error {
 	if err := os.MkdirAll(r.WorkDir, 0700); err != nil {
 		return fmt.Errorf("create workspace dir: %w", err)
 	}
+	//nolint:gosec // G204: Binary is a known tofu path set at construction; args are program-controlled
 	cmd := exec.CommandContext(ctx, r.Binary, args...)
 	cmd.Dir = r.WorkDir
 	cmd.Env = os.Environ()
@@ -91,6 +92,7 @@ func (r *Runner) Destroy(ctx context.Context, varFile string, extraVars map[stri
 }
 
 func (r *Runner) Output(ctx context.Context, key string) (string, error) {
+	//nolint:gosec // G204: Binary is a known tofu path set at construction; key is a program-controlled constant
 	cmd := exec.CommandContext(ctx, r.Binary, "output", "-raw", key)
 	cmd.Dir = r.WorkDir
 	cmd.Env = os.Environ()
