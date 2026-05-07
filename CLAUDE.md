@@ -24,6 +24,93 @@ Every piece of work is owned by exactly one persona. A persona only modifies fil
 | **product-designer** | `persona/product-designer` | `.claude/plans/**`, GitHub Issues (create only), `docs/architecture.md` (joint with docs) |
 | **triage** | — (no commits) | Creates GitHub issues only; evaluates whether a reported issue is valid by code analysis and human intake interview |
 
+## Worktree Setup (Required Before Starting Work)
+
+Each persona works in an isolated git worktree so multiple personas can be active simultaneously without branch conflicts. **Never do persona work directly in the main clone.**
+
+### Which personas need a worktree
+
+| Persona | Worktree | Notes |
+|---|---|---|
+| **developer** | `developer-<feature-name>/` | One worktree per feature branch — created fresh for each issue |
+| **test-engineer** | *(none)* | Works inside the developer's worktree on the same branch |
+| **security** | `security/` | Persistent — one branch for all security work |
+| **qa** | `qa/` | Persistent — one branch for all QA work |
+| **gitops-manager** | `gitops-manager/` | Persistent — one branch for all infra/pipeline work |
+| **docs** | `docs/` | Persistent — one branch for all documentation work |
+| **product-designer** | `product-designer/` | Persistent — plans and issue creation only |
+| **merge-manager** | *(none)* | Works from the main clone; never commits |
+| **triage** | *(none)* | Works from the main clone; never commits |
+
+### Directory layout
+
+```
+~/projects/
+├── losant-device-demo/                    ← main clone (trunk/main, merge-manager, triage)
+└── losant-device-demo-worktrees/
+    ├── security/                          ← persona/security
+    ├── gitops-manager/                    ← persona/gitops-manager
+    ├── docs/                              ← persona/docs
+    ├── qa/                                ← persona/qa
+    ├── product-designer/                  ← persona/product-designer
+    └── developer-<feature-name>/          ← feature/developer/<name>  (one per active feature)
+```
+
+### Current worktree status
+
+All persistent persona worktrees are already created and ready:
+
+```
+losant-device-demo-worktrees/security/          → persona/security
+losant-device-demo-worktrees/gitops-manager/    → persona/gitops-manager
+losant-device-demo-worktrees/docs/              → persona/docs
+losant-device-demo-worktrees/qa/               → persona/qa
+losant-device-demo-worktrees/product-designer/  → persona/product-designer
+```
+
+### Starting a Claude session for a persona
+
+Open a terminal in the persona's worktree directory and start Claude there:
+
+```bash
+cd ~/projects/losant-device-demo-worktrees/security
+claude
+```
+
+The Claude session's working directory determines which persona context is active.
+
+### Creating a developer worktree for a new feature
+
+The developer persona creates a new worktree for each issue. From the main clone:
+
+```bash
+# Replace <feature-name> with a short descriptor matching the issue (e.g. remove-single, scale, fail-fix)
+git worktree add ../losant-device-demo-worktrees/developer-<feature-name> -b feature/developer/<feature-name>
+cd ../losant-device-demo-worktrees/developer-<feature-name>
+claude
+```
+
+The test-engineer opens the same worktree directory in their own Claude session — no separate worktree needed.
+
+### Resuming work on a persona branch after a restart
+
+If a worktree directory was removed but the branch still exists:
+
+```bash
+git worktree add ../losant-device-demo-worktrees/<persona> <branch-name>
+# e.g. git worktree add ../losant-device-demo-worktrees/security persona/security
+```
+
+### Removing a worktree after a branch is merged
+
+```bash
+# From the main clone
+git worktree remove ../losant-device-demo-worktrees/<persona>
+# The branch is deleted by the merge-manager after the PR merges
+```
+
+Developer worktrees should be removed after their PR merges. Persistent persona worktrees stay for the life of the project.
+
 ### Hard Rules
 
 - **developer** never modifies `*_test.go` files, `tofu/**`, or `.github/workflows/**`
