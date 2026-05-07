@@ -1,35 +1,11 @@
 package commands
 
 import (
-	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/spf13/cobra"
-
 	"github.com/mak3r/ldc-demo/internal/state"
 )
-
-// dummyCmd returns a minimal cobra.Command suitable for passing to RunE functions.
-func dummyCmd() *cobra.Command { return &cobra.Command{} }
-
-// withTestState writes a state registry to a temp dir and overrides stateDir.
-func withTestState(t *testing.T, clusters []state.ClusterState) {
-	t.Helper()
-	dir := t.TempDir()
-	reg, _ := state.Load(filepath.Join(dir, "nope.json")) // missing file → empty registry
-	for _, c := range clusters {
-		if _, err := reg.Add(c); err != nil {
-			t.Fatalf("setup: add cluster %q: %v", c.Name, err)
-		}
-	}
-	if err := reg.Save(filepath.Join(dir, "state.json")); err != nil {
-		t.Fatalf("setup: save state: %v", err)
-	}
-	old := stateDir
-	stateDir = dir
-	t.Cleanup(func() { stateDir = old })
-}
 
 // withRemoveFlags temporarily sets the package-level flag variables.
 func withRemoveFlags(t *testing.T, confirm bool, provider string) {
