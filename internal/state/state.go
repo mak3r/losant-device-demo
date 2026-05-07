@@ -19,11 +19,13 @@ type ClusterState struct {
 	Name          string    `json:"name"`
 	CloudProvider string    `json:"cloud_provider"`
 	NodeCount     int       `json:"node_count"`
+	WorkerCount   int       `json:"worker_count"`
 	Size          string    `json:"size"`
 	Region        string    `json:"region"`
 	CreatedAt     time.Time `json:"created_at"`
 	TofuWorkspace string    `json:"tofu_workspace"`
 	Module        string    `json:"module"` // "aws-k3s-single" or "aws-k3s-ha"
+	K3sToken      string    `json:"k3s_token,omitempty"`
 }
 
 type Registry struct {

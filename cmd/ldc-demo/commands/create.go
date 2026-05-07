@@ -132,6 +132,15 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("tofu apply: %w", err)
 	}
 
+	// Read and store the k3s join token so scale can pass it to worker nodes.
+	token, err := runner.Output(ctx, "k3s_token")
+	if err != nil {
+		return fmt.Errorf("read k3s_token output: %w", err)
+	}
+	if cs, err := reg.FindByName(name); err == nil {
+		cs.K3sToken = token
+	}
+
 	// Persist state only after successful apply.
 	if err := reg.Save(statePath()); err != nil {
 		return fmt.Errorf("save state: %w", err)
