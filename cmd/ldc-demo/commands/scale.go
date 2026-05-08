@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -86,7 +87,7 @@ func runScale(cmd *cobra.Command, args []string) error {
 }
 
 func baseNodeCount(module string) int {
-	if module == "aws-k3s-ha" {
+	if strings.HasSuffix(module, "-ha") {
 		return 3
 	}
 	return 1
