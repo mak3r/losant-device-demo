@@ -1,8 +1,10 @@
 package state
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -129,5 +131,41 @@ func TestFindByNameAmbiguous(t *testing.T) {
 
 	if _, err := r.FindByName("demo"); err == nil {
 		t.Fatal("expected error for ambiguous name, got nil")
+	}
+}
+
+func TestProviderConfigRoundTrip(t *testing.T) {
+	original := ClusterState{
+		Name:          "demo",
+		CloudProvider: "gcp",
+		ProviderConfig: map[string]string{
+			"gcp_project": "my-proj",
+			"gcp_zone":    "us-central1-a",
+		},
+	}
+	data, err := json.Marshal(original)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var got ClusterState
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if got.ProviderConfig["gcp_project"] != "my-proj" {
+		t.Errorf("gcp_project: got %q, want %q", got.ProviderConfig["gcp_project"], "my-proj")
+	}
+	if got.ProviderConfig["gcp_zone"] != "us-central1-a" {
+		t.Errorf("gcp_zone: got %q, want %q", got.ProviderConfig["gcp_zone"], "us-central1-a")
+	}
+}
+
+func TestProviderConfigOmitEmpty(t *testing.T) {
+	c := ClusterState{Name: "demo", CloudProvider: "aws", ProviderConfig: nil}
+	data, err := json.Marshal(c)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if strings.Contains(string(data), "provider_config") {
+		t.Errorf("expected provider_config to be absent when nil, got: %s", data)
 	}
 }
