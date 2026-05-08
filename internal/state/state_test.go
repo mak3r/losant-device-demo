@@ -57,7 +57,9 @@ func TestSaveAndLoad(t *testing.T) {
 	path := filepath.Join(dir, "state.json")
 
 	r := &Registry{Version: schemaVersion}
-	r.Add(ClusterState{Name: "demo", CloudProvider: "aws", NodeCount: 1})
+	if _, err := r.Add(ClusterState{Name: "demo", CloudProvider: "aws", NodeCount: 1}); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
 	if err := r.Save(path); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
@@ -88,7 +90,9 @@ func TestSavePermissions(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "state.json")
 	r := &Registry{Version: schemaVersion}
-	r.Save(path)
+	if err := r.Save(path); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
 
 	info, err := os.Stat(path)
 	if err != nil {
@@ -101,7 +105,9 @@ func TestSavePermissions(t *testing.T) {
 
 func TestFindByName(t *testing.T) {
 	r := &Registry{Version: schemaVersion}
-	r.Add(ClusterState{Name: "demo", CloudProvider: "aws"})
+	if _, err := r.Add(ClusterState{Name: "demo", CloudProvider: "aws"}); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
 
 	c, err := r.FindByName("demo")
 	if err != nil {
@@ -114,8 +120,12 @@ func TestFindByName(t *testing.T) {
 
 func TestFindByNameAmbiguous(t *testing.T) {
 	r := &Registry{Version: schemaVersion}
-	r.Add(ClusterState{Name: "demo", CloudProvider: "aws"})
-	r.Add(ClusterState{Name: "demo", CloudProvider: "gcp"})
+	if _, err := r.Add(ClusterState{Name: "demo", CloudProvider: "aws"}); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+	if _, err := r.Add(ClusterState{Name: "demo", CloudProvider: "gcp"}); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
 
 	if _, err := r.FindByName("demo"); err == nil {
 		t.Fatal("expected error for ambiguous name, got nil")
