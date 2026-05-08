@@ -25,7 +25,8 @@ type ClusterState struct {
 	CreatedAt     time.Time `json:"created_at"`
 	TofuWorkspace string    `json:"tofu_workspace"`
 	Module        string    `json:"module"` // "aws-k3s-single" or "aws-k3s-ha"
-	K3sToken      string    `json:"k3s_token,omitempty"`
+	K3sToken       string            `json:"k3s_token,omitempty"`
+	ProviderConfig map[string]string `json:"provider_config,omitempty"`
 }
 
 type Registry struct {

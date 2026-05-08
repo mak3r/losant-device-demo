@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -20,6 +21,10 @@ The cluster must have been created with ldc-demo create. After scaling,
 outputs: uid, name, cloud-provider, node count.`,
 	Args: cobra.ExactArgs(1),
 	RunE: runScale,
+}
+
+func init() {
+	rootCmd.AddCommand(scaleCmd)
 }
 
 func runScale(cmd *cobra.Command, args []string) error {
@@ -82,7 +87,7 @@ func runScale(cmd *cobra.Command, args []string) error {
 }
 
 func baseNodeCount(module string) int {
-	if module == "aws-k3s-ha" {
+	if strings.HasSuffix(module, "-ha") {
 		return 3
 	}
 	return 1

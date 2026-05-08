@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	cloudprovider "github.com/mak3r/ldc-demo/internal/provider"
 	"github.com/mak3r/ldc-demo/internal/kubeconfig"
 	"github.com/mak3r/ldc-demo/internal/state"
 	"github.com/mak3r/ldc-demo/internal/tofu"
@@ -29,6 +30,7 @@ Use with kubectl:
 
 func init() {
 	getKubeconfigCmd.Flags().StringVar(&getKubeconfigSSHKey, "ssh-key", "", "path to SSH private key (default: ~/.ssh/id_rsa or LDC_SSH_PRIVATE_KEY)")
+	rootCmd.AddCommand(getKubeconfigCmd)
 }
 
 func runGetKubeconfig(cmd *cobra.Command, args []string) error {
@@ -40,6 +42,11 @@ func runGetKubeconfig(cmd *cobra.Command, args []string) error {
 	}
 
 	cluster, err := reg.FindByName(name)
+	if err != nil {
+		return err
+	}
+
+	prov, err := cloudprovider.ForName(cluster.CloudProvider)
 	if err != nil {
 		return err
 	}
@@ -67,7 +74,7 @@ func runGetKubeconfig(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("Fetching kubeconfig from %s (%s) ...\n", cluster.Name, serverIP)
 
-	outPath, err := kubeconfig.Fetch(serverIP, "ec2-user", sshPrivKey, cluster.Name, kubeconfigDir())
+	outPath, err := kubeconfig.Fetch(serverIP, prov.SSHUser(), sshPrivKey, cluster.Name, kubeconfigDir())
 	if err != nil {
 		return fmt.Errorf("fetch kubeconfig: %w", err)
 	}

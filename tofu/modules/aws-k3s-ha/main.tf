@@ -4,13 +4,64 @@ locals {
     "ldc-demo-cluster" = var.cluster_name
     "managed-by"       = "ldc-demo"
   }
-  # Generate a random k3s token if not provided
-  k3s_token = var.k3s_token != "" ? var.k3s_token : random_id.k3s_token[0].hex
+  k3s_token         = var.k3s_token != "" ? var.k3s_token : random_id.k3s_token[0].hex
+  losant_secret_arn = one(aws_secretsmanager_secret.losant_api_token[*].arn)
 }
 
 resource "random_id" "k3s_token" {
   count       = var.k3s_token == "" ? 1 : 0
   byte_length = 32
+}
+
+# ── Secrets Manager (optional) ────────────────────────────────────────────────
+
+resource "aws_secretsmanager_secret" "losant_api_token" {
+  count = var.use_secrets_manager ? 1 : 0
+  name  = "ldc-demo/${var.cluster_name}/losant-api-token"
+  tags  = local.common_tags
+}
+
+resource "aws_secretsmanager_secret_version" "losant_api_token" {
+  count         = var.use_secrets_manager ? 1 : 0
+  secret_id     = aws_secretsmanager_secret.losant_api_token[0].id
+  secret_string = var.losant_api_token
+}
+
+resource "aws_iam_role" "ldc_demo" {
+  count = var.use_secrets_manager ? 1 : 0
+  name  = local.prefix
+  tags  = local.common_tags
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Action    = "sts:AssumeRole"
+      Principal = { Service = "ec2.amazonaws.com" }
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "losant_secret" {
+  count = var.use_secrets_manager ? 1 : 0
+  name  = "${local.prefix}-losant-secret"
+  role  = aws_iam_role.ldc_demo[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = "secretsmanager:GetSecretValue"
+      Resource = aws_secretsmanager_secret.losant_api_token[0].arn
+    }]
+  })
+}
+
+resource "aws_iam_instance_profile" "ldc_demo" {
+  count = var.use_secrets_manager ? 1 : 0
+  name  = local.prefix
+  role  = aws_iam_role.ldc_demo[0].name
+  tags  = local.common_tags
 }
 
 data "aws_ami" "suse_micro" {
@@ -47,7 +98,7 @@ resource "aws_security_group" "ldc_demo" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [var.allowed_cidr]
   }
 
   ingress {
@@ -55,7 +106,7 @@ resource "aws_security_group" "ldc_demo" {
     from_port   = 6443
     to_port     = 6443
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [var.allowed_cidr]
   }
 
   # k3s embedded etcd peer communication
@@ -99,13 +150,19 @@ resource "aws_instance" "server_init" {
   instance_type          = var.instance_type
   key_name               = aws_key_pair.ldc_demo.key_name
   vpc_security_group_ids = [aws_security_group.ldc_demo.id]
+  iam_instance_profile   = one(aws_iam_instance_profile.ldc_demo[*].name)
 
   root_block_device {
     volume_size = var.volume_size_gb
     volume_type = "gp3"
   }
 
-  user_data = templatefile("${path.module}/cloud-init-server.yaml.tpl", {
+  user_data = local.losant_secret_arn != null ? templatefile("${path.module}/cloud-init-server-sm.yaml.tpl", {
+    k3s_channel           = var.k3s_channel
+    k3s_token             = local.k3s_token
+    losant_secret_arn     = local.losant_secret_arn
+    losant_application_id = var.losant_application_id
+    }) : templatefile("${path.module}/cloud-init-server.yaml.tpl", {
     k3s_channel           = var.k3s_channel
     k3s_token             = local.k3s_token
     losant_api_token      = var.losant_api_token
