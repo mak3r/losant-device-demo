@@ -66,7 +66,7 @@ losant-device-demo-worktrees/gitops-manager/    → persona/gitops-manager
 losant-device-demo-worktrees/docs/              → persona/docs
 losant-device-demo-worktrees/qa/               → persona/qa
 losant-device-demo-worktrees/product-designer/  → persona/product-designer
-losant-device-demo-worktrees/development/       → develop (developer/test-engineer feature work)
+losant-device-demo-worktrees/development/       → main (developer/test-engineer feature work)
 ```
 
 ### Starting a Claude session for a persona
@@ -151,12 +151,12 @@ The merge manager is a gatekeeper, not a coder. When reviewing a PR it:
 
 1. Runs `make test` — if it fails, creates a GitHub issue labeled `persona/<owner>` and `bug`, comments on the PR with the issue link, and does NOT merge
 2. Checks for open `type/security` issues on the branch — if any exist, blocks merge and creates a blocking issue
-3. If CI is green and no blockers exist, merges the PR to `develop` with `gh pr merge <n> --merge --delete-branch` (no approval step — all personas share one GitHub account, so self-approval is not possible)
+3. If CI is green and no blockers exist, merges the PR to `main` with `gh pr merge <n> --merge --delete-branch` (no approval step — all personas share one GitHub account, so self-approval is not possible)
 4. Never edits source files, never force-pushes, never resolves conflicts directly
 
 When conflicts exist between two branches, the merge manager creates an issue assigned to both responsible personas and waits for them to resolve it.
 
-For releases: when `develop` is stable, the merge manager creates a PR from `develop` to `main`, bumps `internal/version/version.go`, and tags the release with a `v*` tag. No other file changes. Pushing the tag triggers `.github/workflows/release.yml`, which runs `make test`, builds and pushes a multi-arch image to `ghcr.io/mak3r/losant-device:<tag>`, and creates a GitHub Release.
+For releases: when `main` is stable, the merge manager bumps `internal/version/version.go` and tags the release with a `v*` tag. No other file changes. Pushing the tag triggers `.github/workflows/release.yml`, which runs `make test`, builds and pushes a multi-arch image to `ghcr.io/mak3r/losant-device:<tag>`, and creates a GitHub Release.
 
 ## Product Designer Rules
 
@@ -223,7 +223,7 @@ If the test engineer finds a bug, they open a GitHub issue labeled `persona/deve
 Runs automatically via `.github/workflows/docs-agent.yml` on every merged PR. It:
 - Reads the PR diff to identify changed files
 - Updates `docs/**`, `README.md`, `CLAUDE.md` to reflect the changes
-- Commits to `develop/docs` and opens a PR to `develop`
+- Commits to `persona/docs` and opens a PR to `main`
 - Never touches `*.go`, `*_test.go`, or `helm/templates/**`
 
 To manually trigger a docs pass: use the `/docs-refresh` Claude Code skill.
