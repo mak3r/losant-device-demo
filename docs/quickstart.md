@@ -104,6 +104,38 @@ ldc-demo remove all --confirm
 
 This destroys all EC2 instances, security groups, Elastic IPs, and key pairs created by ldc-demo.
 
+## Running E2E Tests
+
+> **Maintainers / release validation only.** E2E tests provision real AWS infrastructure and incur real costs. Do not run them on every commit — they are gated by a build tag and excluded from normal CI.
+
+### Additional prerequisites
+
+All items from [Prerequisites](#prerequisites) above, plus:
+
+- Go toolchain (already required to build ldc-demo)
+- Real AWS credentials with permission to create EC2 instances, security groups, key pairs, and Elastic IPs
+- Losant API token and Application ID (`LDC_LOSANT_API_TOKEN`, `LDC_LOSANT_APPLICATION_ID`)
+- SSH key pair at `~/.ssh/id_rsa` / `~/.ssh/id_rsa.pub` (or set `LDC_SSH_PRIVATE_KEY` / `LDC_SSH_PUBLIC_KEY`)
+
+### Run the suite
+
+```bash
+go test -tags e2e ./test/e2e/... -v -timeout 20m
+```
+
+The suite covers the full happy-path lifecycle: `create` → `list` → `get-kubeconfig` → node/pod health check → `remove all` → empty-list verify.
+
+### Optional overrides
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `LDC_DEMO_BIN` | *(built from source)* | Path to a pre-built `ldc-demo` binary — skips the `go build` step in `TestMain` |
+| `E2E_AWS_REGION` | `us-east-1` | AWS region for provisioned resources |
+
+### Full acceptance checklist
+
+For the complete human-readable checklist used during release validation (error cases, state integrity, security baseline), see [`docs/acceptance-criteria.md`](acceptance-criteria.md).
+
 ## Troubleshooting
 
 **`tofu` not found:** Install OpenTofu from https://opentofu.org or use `--tofu-binary /path/to/terraform` to fall back to Terraform.
