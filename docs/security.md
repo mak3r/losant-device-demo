@@ -104,7 +104,7 @@ Any process on the instance — and any IAM principal with `compute.instances.ge
 
 `ldc-demo fail network` works by disabling the `<name>-allow-egress` firewall rule (priority 500), leaving the `<name>-deny-egress` rule (priority 1000) to block all egress. This two-rule pattern — deny at priority 1000, allow at priority 500 — was added in PR #69 to make `fail network` effective on GCP.
 
-**Important:** GCP's `default` VPC has an implicit allow-all egress rule at priority 65535 that cannot be removed. If you reuse the `default` VPC instead of the dedicated VPC created by the `gcp-k3s-*` modules, the named rules do not apply and `fail network` will not block egress. Always use the tofu modules — do not provision clusters directly in the `default` VPC.
+**Important:** GCP's `default` VPC has an **implicit allow-all egress rule (priority 65535)** that cannot be deleted — it can only be superseded by an explicit DENY rule with higher priority. If you reuse the `default` VPC instead of the dedicated VPC created by the `gcp-k3s-*` modules, the named rules do not apply and `fail network` will not fully block egress. Always use the tofu modules — do not provision clusters directly in the `default` VPC. Tracked in issue #81.
 
 ## Accepted Risks: Open Security Group Rules
 
