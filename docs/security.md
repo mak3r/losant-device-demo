@@ -27,20 +27,38 @@ The following are excluded from version control:
 
 If `ldc-demo get-kubeconfig` saves a kubeconfig, ensure it lands outside the repository root, or that the filename matches one of the patterns above.
 
-## Accepted Risk: EC2 User-Data Token Exposure
+## Losant API Token: Two Delivery Modes
 
-The `losant_api_token` (and, in the HA module, the `k3s_token`) are injected into EC2 user-data via the `cloud-init.yaml.tpl` templates. User-data is readable by any IAM principal with `ec2:DescribeInstanceAttribute` on the instance.
+`ldc-demo` supports two ways to deliver the `losant_api_token` to EC2 instances, selectable via the `use_secrets_manager` OpenTofu variable (default: `false`).
 
-**Risk:** Anyone with describe access to the EC2 instance can retrieve the Losant API token in plaintext from the user-data field.
+### Mode 1 — Direct (default, `use_secrets_manager = false`)
 
-**Why this is acceptable for MVP:** The Losant API token is scoped to a single application and is used only to provision the losant-device operator. A demo cluster is short-lived (under 4 hours). Exposing this token does not grant access to the Kubernetes cluster or to other AWS resources.
+The token is embedded in EC2 user-data via `cloud-init.yaml.tpl` and written into the `losant-provisioning-credentials` Kubernetes Secret at boot.
 
-**Mitigation path (future):** Store `LDC_LOSANT_API_TOKEN` in AWS Secrets Manager at create time and have cloud-init fetch it via `aws secretsmanager get-secret-value` using the instance's IAM role. This requires an IAM role and instance profile in the OpenTofu modules. Tracked for `persona/gitops-manager` as an optional enhancement — **not required for MVP**.
+**Risk:** User-data is readable by any IAM principal with `ec2:DescribeInstanceAttribute` on the instance. Anyone with that permission can retrieve the Losant API token in plaintext.
 
-**Mitigation in place now:**
+**Why this is acceptable for MVP demos:** The token is scoped to a single Losant application and is used only to provision the losant-device operator. A demo cluster is short-lived (under 4 hours). Token exposure does not grant Kubernetes cluster access or access to other AWS resources.
+
+**Mitigations in place:**
 - The secret manifest written to disk by cloud-init has `permissions: "0600"`.
 - `runcmd` does not use `set -x` or any shell debug flag that would echo the token to `/var/log/cloud-init-output.log`.
 - The token is not surfaced in any OpenTofu output.
+
+### Mode 2 — AWS Secrets Manager (`use_secrets_manager = true`)
+
+When this mode is enabled, the token never appears in EC2 user-data. The flow is:
+
+1. **At `ldc-demo create`:** OpenTofu stores the token in AWS Secrets Manager at path `ldc-demo/<cluster_name>/losant-api-token` and creates an IAM role `ldc-demo-<cluster_name>` with a `secretsmanager:GetSecretValue` policy scoped to that specific ARN. The role is attached to the EC2 instance as an instance profile.
+
+2. **At boot (cloud-init):** A script at `/usr/local/sbin/write-losant-credentials` runs before k3s starts:
+   - Discovers the AWS region via IMDSv2 (no region hard-coded in user-data)
+   - Installs the AWS CLI if not present
+   - Calls `aws secretsmanager get-secret-value --secret-id <ARN>` — authenticated automatically via the instance profile (no credentials in user-data)
+   - Writes the `losant-provisioning-credentials` Kubernetes Secret manifest to `/var/lib/rancher/k3s/server/manifests/` with `permissions: "0600"`
+
+3. **At `ldc-demo remove`:** `tofu destroy` deletes the Secrets Manager secret, the IAM role, and the instance profile along with all other cluster resources.
+
+**Trade-off:** This mode adds IAM role, instance profile, and Secrets Manager resources to the OpenTofu plan. It is recommended for non-ephemeral or shared demo environments where the AWS account is accessible to multiple people. For a short-lived personal demo, Mode 1 is sufficient.
 
 ## Accepted Risks: Open Security Group Rules
 
@@ -57,7 +75,7 @@ Both the `aws-k3s-single` and `aws-k3s-ha` OpenTofu modules expose two ports to 
 
 ### Recommended Mitigations for Real Workloads
 
-1. **Restrict by CIDR.** A planned `--allowed-cidr` flag (tracked in a separate issue for `persona/gitops-manager`) will let users pass their IP or CIDR at `ldc-demo create` time. Until that flag exists, users can set the variable directly in `tofu/modules/*/main.tf`.
+1. **Restrict by CIDR.** Pass `--allowed-cidr <your-ip>/32` to `ldc-demo create` to limit SSH and k3s API access to a specific address. Without this flag, both ports are open to `0.0.0.0/0`.
 
 2. **Rotate the kubeconfig.** After provisioning, regenerate the k3s server token and replace the admin kubeconfig if the cluster will run for more than a few hours.
 
@@ -102,6 +120,6 @@ No `set -x` or equivalent shell debug flag is present in any `runcmd` block. Tok
 
 | Scenario | Action |
 |---|---|
-| Local dev / conference demo (< 4 hours) | Default settings are fine; tear down when done |
-| Workshop / multi-day demo | Restrict SG rules to your CIDR; rotate kubeconfig daily |
+| Local dev / conference demo (< 4 hours) | Default settings (`use_secrets_manager = false`) are fine; tear down when done |
+| Shared or multi-day demo | Set `use_secrets_manager = true`; restrict SG rules with `--allowed-cidr`; rotate kubeconfig daily |
 | Production or regulated data | Do not use this tool as-is; harden per items above |

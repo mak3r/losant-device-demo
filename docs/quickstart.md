@@ -86,11 +86,9 @@ kubectl --kubeconfig ~/.ldc-demo/kubeconfigs/my-demo.yaml get pods -n losant-sys
 ldc-demo create ha my-ha-demo aws --size medium
 ```
 
-This provisions 3 `t3.medium` instances with embedded etcd HA. The first server bootstraps the cluster; the other two join after a 90-second delay.
+This provisions 3 `t3.medium` instances with embedded etcd HA. The first server bootstraps the cluster; the agent nodes poll the server's k3s API (`/readyz`) every 10 seconds and join automatically once it is ready — no fixed sleep.
 
 **Expected time:** 6–10 minutes
-
-**Note:** The fixed join delay is a known MVP limitation. If nodes fail to join, see [Troubleshooting](#troubleshooting).
 
 ## 6. Clean up
 
@@ -112,7 +110,7 @@ This destroys all EC2 instances, security groups, Elastic IPs, and key pairs cre
 
 **SSH connection refused on `get-kubeconfig`:** The instance may still be running cloud-init. Wait 2–3 minutes and retry.
 
-**HA nodes not joining:** SSH into the server and check `journalctl -u k3s`. The 90-second join delay may need to be increased for slow instance types. This is a known MVP limitation.
+**HA nodes not joining:** SSH into the server and check `journalctl -u k3s`. Agent nodes poll for server readiness every 10 seconds; if they fail to join after several minutes, the server may have failed to start — check the server node's k3s service logs.
 
 **Losant controller not running:** Check `kubectl get events -n losant-system`. If the Helm chart pull failed, verify the Helm repo URL is reachable from the cluster.
 
@@ -120,7 +118,11 @@ This destroys all EC2 instances, security groups, Elastic IPs, and key pairs cre
 
 ## Security notes
 
-- The Losant API token is injected into EC2 user-data via cloud-init. It is not stored in any local file but is visible to AWS users with `ec2:DescribeInstanceAttribute` permission on the instance.
-- AWS credentials are never stored by ldc-demo. They are read from environment variables or `~/.aws/credentials`.
-- Cluster state is stored at `~/.ldc-demo/state.json` (mode `0600`). This file contains cluster metadata but no credentials.
-- Security groups allow SSH (22) and k3s API (6443) from all IPs (`0.0.0.0/0`). For production use, restrict these to known CIDR ranges.
+> **Demo use only.** The defaults below are intentionally permissive for ease of use. Read [`docs/security.md`](security.md) before running real workloads.
+
+- **Losant API token in EC2 user-data** — the token is visible to any AWS user with `ec2:DescribeInstanceAttribute` permission. Accepted risk for demos; use AWS Secrets Manager for production.
+- **Open security groups** — SSH (22) and k3s API (6443) are open to `0.0.0.0/0` by default. Use `--allowed-cidr` to restrict access to your IP or corporate range.
+- AWS credentials are never written to disk by ldc-demo; they are read from environment variables or `~/.aws/credentials`.
+- Cluster state at `~/.ldc-demo/state.json` (mode `0600`) contains cluster metadata but no credentials.
+
+For the full credential flow, accepted risks, and mitigation recommendations see [`docs/security.md`](security.md).
