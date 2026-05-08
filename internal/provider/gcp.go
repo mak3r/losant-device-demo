@@ -46,6 +46,23 @@ func (g *GCPProvider) FindInstance(ctx context.Context, cluster *state.ClusterSt
 	return name, nil
 }
 
+func (g *GCPProvider) FindStoppedInstance(ctx context.Context, cluster *state.ClusterState) (string, error) {
+	zone := cluster.ProviderConfig["gcp_zone"]
+	//nolint:gosec // G204: cluster.Name comes from state registry, not raw user input
+	out, err := exec.CommandContext(ctx, "gcloud", "compute", "instances", "list",
+		"--filter", "labels.ldc-demo-cluster="+cluster.Name+" AND status=STOPPED",
+		"--zones", zone,
+		"--format", "value(name)").Output()
+	if err != nil {
+		return "", fmt.Errorf("gcloud list stopped instances: %w", err)
+	}
+	name := strings.TrimSpace(string(out))
+	if name == "" {
+		return "", fmt.Errorf("no stopped instance found for cluster %q in zone %q", cluster.Name, zone)
+	}
+	return name, nil
+}
+
 func (g *GCPProvider) StopInstance(ctx context.Context, instanceRef string, cluster *state.ClusterState) error {
 	zone := cluster.ProviderConfig["gcp_zone"]
 	//nolint:gosec // G204: instanceRef from gcloud API, zone from state

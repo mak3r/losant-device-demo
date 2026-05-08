@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	cloudprovider "github.com/mak3r/ldc-demo/internal/provider"
 	"github.com/mak3r/ldc-demo/internal/kubeconfig"
 	"github.com/mak3r/ldc-demo/internal/state"
 	"github.com/mak3r/ldc-demo/internal/tofu"
@@ -52,6 +53,11 @@ func runApplyConfig(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	prov, err := cloudprovider.ForName(cluster.CloudProvider)
+	if err != nil {
+		return err
+	}
+
 	sshPrivKey := applySSHKey
 	if sshPrivKey == "" {
 		sshPrivKey = envOrDefault("LDC_SSH_PRIVATE_KEY", filepath.Join(os.Getenv("HOME"), ".ssh", "id_rsa"))
@@ -73,7 +79,7 @@ func runApplyConfig(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("get server IP from tofu output: %w", err)
 	}
 
-	kcPath, err := kubeconfig.Fetch(serverIP, "ec2-user", sshPrivKey, cluster.Name, kubeconfigDir())
+	kcPath, err := kubeconfig.Fetch(serverIP, prov.SSHUser(), sshPrivKey, cluster.Name, kubeconfigDir())
 	if err != nil {
 		return fmt.Errorf("fetch kubeconfig: %w", err)
 	}
