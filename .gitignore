@@ -26,6 +26,10 @@ override.tf.json
 *.pem
 *.key
 *credentials*.json
+*-service-account*.json
+*-sa-key*.json
+gcp-key*.json
+application_default_credentials.json
 
 # Claude Code local settings (machine-specific, never commit)
 .claude/settings.local.json
