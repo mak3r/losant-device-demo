@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	cloudprovider "github.com/mak3r/ldc-demo/internal/provider"
 	"github.com/mak3r/ldc-demo/internal/state"
 	"github.com/mak3r/ldc-demo/internal/tofu"
 )
@@ -39,7 +40,7 @@ func init() {
 	createCmd.Flags().StringVar(&createSize, "size", "small", "instance size: small, medium, large")
 	createCmd.Flags().StringVar(&createK3sChannel, "k3s-channel", "stable", "k3s release channel")
 	createCmd.Flags().StringVar(&createSSHKey, "ssh-key", "", "path to SSH public key (default: ~/.ssh/id_rsa.pub)")
-	createCmd.Flags().StringVar(&createRegion, "region", "us-east-1", "cloud provider region")
+	createCmd.Flags().StringVar(&createRegion, "region", "us-east-1", "cloud provider region (for GCP, pass a zone, e.g. us-central1-a)")
 	createCmd.Flags().StringVar(&createAllowedCIDR, "allowed-cidr", "", "restrict SSH and k3s API access to this CIDR (default: 0.0.0.0/0)")
 	rootCmd.AddCommand(createCmd)
 }
@@ -66,8 +67,14 @@ func runCreate(cmd *cobra.Command, args []string) error {
 	if !isValidSize(createSize) {
 		return fmt.Errorf("invalid --size %q: must be small, medium, or large", createSize)
 	}
-	if provider != "aws" {
-		return fmt.Errorf("unsupported cloud provider %q: only 'aws' is supported in this version", provider)
+	prov, err := cloudprovider.ForName(provider)
+	if err != nil {
+		return err
+	}
+	if provider == "gcp" {
+		if err := checkRequiredEnv("GCLOUD_PROJECT"); err != nil {
+			return err
+		}
 	}
 
 	if err := checkRequiredEnv("LDC_LOSANT_API_TOKEN", "LDC_LOSANT_APPLICATION_ID"); err != nil {
@@ -82,10 +89,9 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("SSH public key not found at %s (set --ssh-key or LDC_SSH_PUBLIC_KEY)", sshPublicKey)
 	}
 
-	moduleName := "aws-k3s-single"
+	moduleName := prov.ModuleName(ha)
 	nodeCount := 1
 	if ha {
-		moduleName = "aws-k3s-ha"
 		nodeCount = 3
 	}
 
@@ -95,12 +101,13 @@ func runCreate(cmd *cobra.Command, args []string) error {
 	}
 
 	cluster, err := reg.Add(state.ClusterState{
-		Name:          name,
-		CloudProvider: provider,
-		NodeCount:     nodeCount,
-		Size:          createSize,
-		Region:        createRegion,
-		Module:        moduleName,
+		Name:           name,
+		CloudProvider:  provider,
+		NodeCount:      nodeCount,
+		Size:           createSize,
+		Region:         createRegion,
+		Module:         moduleName,
+		ProviderConfig: gcpProviderConfig(provider, createRegion),
 	})
 	if err != nil {
 		return err
@@ -192,17 +199,14 @@ func envOrDefault(key, def string) string {
 // writeTempVarFile copies the resource size template into a temporary file and
 // adds cluster-specific variables. Returns path and a cleanup func.
 func writeTempVarFile(cluster state.ClusterState, sshPublicKey string) (string, func(), error) {
-	templatePath := filepath.Join(repoRoot(), "tofu", "resources", cluster.Size+".tfvars.template")
+	templatePath := filepath.Join(repoRoot(), "tofu", "resources", cluster.CloudProvider+"-"+cluster.Size+".tfvars.template")
 	templateData, err := os.ReadFile(templatePath)
 	if err != nil {
 		return "", func() {}, fmt.Errorf("read size template %s: %w", templatePath, err)
 	}
 
-	extra := fmt.Sprintf(`
-cluster_name         = %q
-aws_region           = %q
-ssh_public_key_path  = %q
-`, cluster.Name, cluster.Region, sshPublicKey)
+	prov, _ := cloudprovider.ForName(cluster.CloudProvider) // error impossible: already validated at create time
+	extra := buildVarBlock(cluster.Name, sshPublicKey, prov.VarFileVars(cluster))
 
 	content := string(templateData) + extra
 
@@ -217,6 +221,26 @@ ssh_public_key_path  = %q
 	f.Close()
 
 	return f.Name(), func() { os.Remove(f.Name()) }, nil
+}
+
+func gcpProviderConfig(providerName, zone string) map[string]string {
+	if providerName != "gcp" {
+		return nil
+	}
+	return map[string]string{
+		"gcp_project": os.Getenv("GCLOUD_PROJECT"),
+		"gcp_zone":    zone,
+	}
+}
+
+func buildVarBlock(name, sshKey string, provVars map[string]string) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "\ncluster_name        = %q\n", name)
+	for k, v := range provVars {
+		fmt.Fprintf(&b, "%-20s = %q\n", k, v)
+	}
+	fmt.Fprintf(&b, "ssh_public_key_path  = %q\n", sshKey)
+	return b.String()
 }
 
 func printClusters(w io.Writer, clusters []state.ClusterState) {
