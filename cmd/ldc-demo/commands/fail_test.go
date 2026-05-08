@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"context"
 	"testing"
 
 	"github.com/mak3r/ldc-demo/internal/state"
@@ -43,53 +42,7 @@ func TestFixNetworkClusterNotFound(t *testing.T) {
 	}
 }
 
-// --- findClusterInstance ------------------------------------------------
-
-func TestFindClusterInstanceReturnsID(t *testing.T) {
-	fakeAWSScript(t, map[string]string{"describe-instances": "i-0abc12345"})
-	id, err := findClusterInstance(context.Background(), "demo")
-	if err != nil {
-		t.Fatalf("findClusterInstance: %v", err)
-	}
-	if id != "i-0abc12345" {
-		t.Errorf("got instance ID %q, want %q", id, "i-0abc12345")
-	}
-}
-
-func TestFindClusterInstanceNoneFound(t *testing.T) {
-	fakeAWSScript(t, map[string]string{"describe-instances": "None"})
-	if _, err := findClusterInstance(context.Background(), "demo"); err == nil {
-		t.Fatal("expected error when describe-instances returns None")
-	}
-}
-
-// --- findClusterSecurityGroup -------------------------------------------
-
-func TestFindClusterSecurityGroupReturnsID(t *testing.T) {
-	fakeAWSScript(t, map[string]string{"describe-instances": "sg-0abc12345"})
-	id, err := findClusterSecurityGroup(context.Background(), "demo")
-	if err != nil {
-		t.Fatalf("findClusterSecurityGroup: %v", err)
-	}
-	if id != "sg-0abc12345" {
-		t.Errorf("got SG ID %q, want %q", id, "sg-0abc12345")
-	}
-}
-
-// --- findStoppedClusterInstance -----------------------------------------
-
-func TestFindStoppedClusterInstanceReturnsID(t *testing.T) {
-	fakeAWSScript(t, map[string]string{"describe-instances": "i-stopped1234"})
-	id, err := findStoppedClusterInstance(context.Background(), "demo")
-	if err != nil {
-		t.Fatalf("findStoppedClusterInstance: %v", err)
-	}
-	if id != "i-stopped1234" {
-		t.Errorf("got instance ID %q, want %q", id, "i-stopped1234")
-	}
-}
-
-// --- runFailNode end-to-end (fake aws) ----------------------------------
+// --- runFailNode end-to-end (AWS) ---------------------------------------
 
 func TestRunFailNodeStopsInstance(t *testing.T) {
 	withTestState(t, []state.ClusterState{{Name: "demo", CloudProvider: "aws"}})
@@ -102,7 +55,7 @@ func TestRunFailNodeStopsInstance(t *testing.T) {
 	}
 }
 
-// --- runFixNode end-to-end (fake aws) -----------------------------------
+// --- runFixNode end-to-end (AWS) ----------------------------------------
 
 func TestRunFixNodeStartsInstance(t *testing.T) {
 	withTestState(t, []state.ClusterState{{Name: "demo", CloudProvider: "aws"}})
@@ -112,5 +65,57 @@ func TestRunFixNodeStartsInstance(t *testing.T) {
 	})
 	if err := runFixNode(dummyCmd(), []string{"demo"}); err != nil {
 		t.Fatalf("runFixNode: %v", err)
+	}
+}
+
+// --- GCP variants -------------------------------------------------------
+
+var gcpCluster = state.ClusterState{
+	Name:          "demo",
+	CloudProvider: "gcp",
+	ProviderConfig: map[string]string{
+		"gcp_zone": "us-central1-a",
+	},
+}
+
+func TestRunFailNodeGCP(t *testing.T) {
+	withTestState(t, []state.ClusterState{gcpCluster})
+	fakeGcloudScript(t, map[string]string{
+		"list": "demo-node-0",
+		"stop": "",
+	})
+	if err := runFailNode(dummyCmd(), []string{"demo"}); err != nil {
+		t.Fatalf("runFailNode GCP: %v", err)
+	}
+}
+
+func TestRunFixNodeGCP(t *testing.T) {
+	withTestState(t, []state.ClusterState{gcpCluster})
+	fakeGcloudScript(t, map[string]string{
+		"list":  "demo-node-0",
+		"start": "",
+	})
+	if err := runFixNode(dummyCmd(), []string{"demo"}); err != nil {
+		t.Fatalf("runFixNode GCP: %v", err)
+	}
+}
+
+func TestRunFailNetworkGCP(t *testing.T) {
+	withTestState(t, []state.ClusterState{gcpCluster})
+	fakeGcloudScript(t, map[string]string{
+		"update": "",
+	})
+	if err := runFailNetwork(dummyCmd(), []string{"demo"}); err != nil {
+		t.Fatalf("runFailNetwork GCP: %v", err)
+	}
+}
+
+func TestRunFixNetworkGCP(t *testing.T) {
+	withTestState(t, []state.ClusterState{gcpCluster})
+	fakeGcloudScript(t, map[string]string{
+		"update": "",
+	})
+	if err := runFixNetwork(dummyCmd(), []string{"demo"}); err != nil {
+		t.Fatalf("runFixNetwork GCP: %v", err)
 	}
 }

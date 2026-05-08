@@ -6,10 +6,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 
+	cloudprovider "github.com/mak3r/ldc-demo/internal/provider"
 	"github.com/mak3r/ldc-demo/internal/kubeconfig"
 	"github.com/mak3r/ldc-demo/internal/state"
 	"github.com/mak3r/ldc-demo/internal/tofu"
@@ -22,14 +22,14 @@ var fixCmd = &cobra.Command{
 
 var fixNodeCmd = &cobra.Command{
 	Use:   "node <cluster-name>",
-	Short: "Restart any stopped EC2 instances in the cluster",
+	Short: "Restart any stopped compute instances in the cluster",
 	Args:  cobra.ExactArgs(1),
 	RunE:  runFixNode,
 }
 
 var fixNetworkCmd = &cobra.Command{
 	Use:   "network <cluster-name>",
-	Short: "Restore outbound traffic for the cluster (re-add allow-all egress rule)",
+	Short: "Restore outbound traffic for the cluster",
 	Args:  cobra.ExactArgs(1),
 	RunE:  runFixNetwork,
 }
@@ -55,23 +55,26 @@ func runFixNode(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("load state: %w", err)
 	}
-	if _, err := reg.FindByName(clusterName); err != nil {
-		return err
-	}
-
-	instanceID, err := findStoppedClusterInstance(cmd.Context(), clusterName)
+	cluster, err := reg.FindByName(clusterName)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Starting instance %s in cluster %q ...\n", instanceID, clusterName)
-	//nolint:gosec // G204: instanceID comes from AWS API, not raw user input
-	out, err := exec.CommandContext(cmd.Context(), "aws", "ec2", "start-instances",
-		"--instance-ids", instanceID).CombinedOutput()
+	prov, err := cloudprovider.ForName(cluster.CloudProvider)
 	if err != nil {
-		return fmt.Errorf("start instance: %w\n%s", err, out)
+		return err
 	}
-	fmt.Printf("Instance %s started. The node will rejoin the cluster shortly.\n", instanceID)
+
+	instanceRef, err := prov.FindStoppedInstance(cmd.Context(), cluster)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Starting instance %s in cluster %q ...\n", instanceRef, clusterName)
+	if err := prov.StartInstance(cmd.Context(), instanceRef, cluster); err != nil {
+		return fmt.Errorf("start instance: %w", err)
+	}
+	fmt.Printf("Instance %s started. The node will rejoin the cluster shortly.\n", instanceRef)
 	return nil
 }
 
@@ -81,23 +84,24 @@ func runFixNetwork(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("load state: %w", err)
 	}
-	if _, err := reg.FindByName(clusterName); err != nil {
-		return err
-	}
-
-	sgID, err := findClusterSecurityGroup(cmd.Context(), clusterName)
+	cluster, err := reg.FindByName(clusterName)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Restoring outbound traffic for cluster %q (SG: %s) ...\n", clusterName, sgID)
-	//nolint:gosec // G204: sgID comes from AWS API, not raw user input
-	out, err := exec.CommandContext(cmd.Context(), "aws", "ec2", "authorize-security-group-egress",
-		"--group-id", sgID,
-		"--protocol", "-1",
-		"--cidr", "0.0.0.0/0").CombinedOutput()
+	prov, err := cloudprovider.ForName(cluster.CloudProvider)
 	if err != nil {
-		return fmt.Errorf("authorize egress rules: %w\n%s", err, out)
+		return err
+	}
+
+	barrierRef, err := prov.FindNetworkBarrier(cmd.Context(), cluster)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Restoring outbound traffic for cluster %q (barrier: %s) ...\n", clusterName, barrierRef)
+	if err := prov.RestoreOutbound(cmd.Context(), barrierRef, cluster); err != nil {
+		return fmt.Errorf("restore outbound: %w", err)
 	}
 	fmt.Printf("Outbound traffic restored for cluster %q.\n", clusterName)
 	return nil
@@ -124,25 +128,6 @@ func runFixPod(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// findStoppedClusterInstance returns a stopped instance ID tagged with ldc-demo-cluster=<name>.
-func findStoppedClusterInstance(ctx context.Context, clusterName string) (string, error) {
-	//nolint:gosec // G204: clusterName comes from state registry
-	out, err := exec.CommandContext(ctx, "aws", "ec2", "describe-instances",
-		"--filters",
-		"Name=tag:ldc-demo-cluster,Values="+clusterName,
-		"Name=instance-state-name,Values=stopped",
-		"--query", "Reservations[0].Instances[0].InstanceId",
-		"--output", "text").Output()
-	if err != nil {
-		return "", fmt.Errorf("describe instances: %w", err)
-	}
-	id := strings.TrimSpace(string(out))
-	if id == "" || id == "None" {
-		return "", fmt.Errorf("no stopped instance found for cluster %q", clusterName)
-	}
-	return id, nil
-}
-
 // ensureKubeconfig fetches (or reuses a cached) kubeconfig for the named cluster.
 func ensureKubeconfig(ctx context.Context, clusterName, sshKeyOverride string) (string, error) {
 	reg, err := state.Load(statePath())
@@ -150,6 +135,11 @@ func ensureKubeconfig(ctx context.Context, clusterName, sshKeyOverride string) (
 		return "", fmt.Errorf("load state: %w", err)
 	}
 	cluster, err := reg.FindByName(clusterName)
+	if err != nil {
+		return "", err
+	}
+
+	prov, err := cloudprovider.ForName(cluster.CloudProvider)
 	if err != nil {
 		return "", err
 	}
@@ -173,5 +163,5 @@ func ensureKubeconfig(ctx context.Context, clusterName, sshKeyOverride string) (
 		return "", fmt.Errorf("get server IP: %w", err)
 	}
 
-	return kubeconfig.Fetch(serverIP, "ec2-user", sshPrivKey, cluster.Name, kubeconfigDir())
+	return kubeconfig.Fetch(serverIP, prov.SSHUser(), sshPrivKey, cluster.Name, kubeconfigDir())
 }

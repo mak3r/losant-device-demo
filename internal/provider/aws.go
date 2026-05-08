@@ -44,6 +44,24 @@ func (a *AWSProvider) FindInstance(ctx context.Context, cluster *state.ClusterSt
 	return id, nil
 }
 
+func (a *AWSProvider) FindStoppedInstance(ctx context.Context, cluster *state.ClusterState) (string, error) {
+	//nolint:gosec // G204: cluster.Name comes from state registry, not raw user input
+	out, err := exec.CommandContext(ctx, "aws", "ec2", "describe-instances",
+		"--filters",
+		"Name=tag:ldc-demo-cluster,Values="+cluster.Name,
+		"Name=instance-state-name,Values=stopped",
+		"--query", "Reservations[0].Instances[0].InstanceId",
+		"--output", "text").Output()
+	if err != nil {
+		return "", fmt.Errorf("describe instances: %w", err)
+	}
+	id := strings.TrimSpace(string(out))
+	if id == "" || id == "None" {
+		return "", fmt.Errorf("no stopped instance found for cluster %q", cluster.Name)
+	}
+	return id, nil
+}
+
 func (a *AWSProvider) StopInstance(ctx context.Context, instanceRef string, cluster *state.ClusterState) error {
 	//nolint:gosec // G204: instanceRef comes from AWS API response, not user input
 	out, err := exec.CommandContext(ctx, "aws", "ec2", "stop-instances",
