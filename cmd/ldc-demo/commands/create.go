@@ -16,10 +16,11 @@ import (
 )
 
 var (
-	createSize       string
-	createK3sChannel string
-	createSSHKey     string
-	createRegion     string
+	createSize        string
+	createK3sChannel  string
+	createSSHKey      string
+	createRegion      string
+	createAllowedCIDR string
 )
 
 var createCmd = &cobra.Command{
@@ -39,6 +40,7 @@ func init() {
 	createCmd.Flags().StringVar(&createK3sChannel, "k3s-channel", "stable", "k3s release channel")
 	createCmd.Flags().StringVar(&createSSHKey, "ssh-key", "", "path to SSH public key (default: ~/.ssh/id_rsa.pub)")
 	createCmd.Flags().StringVar(&createRegion, "region", "us-east-1", "cloud provider region")
+	createCmd.Flags().StringVar(&createAllowedCIDR, "allowed-cidr", "", "restrict SSH and k3s API access to this CIDR (default: 0.0.0.0/0)")
 	rootCmd.AddCommand(createCmd)
 }
 
@@ -128,6 +130,9 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		"losant_api_token":      os.Getenv("LDC_LOSANT_API_TOKEN"),
 		"losant_application_id": os.Getenv("LDC_LOSANT_APPLICATION_ID"),
 		"k3s_channel":           createK3sChannel,
+	}
+	if createAllowedCIDR != "" {
+		extraVars["allowed_cidr"] = createAllowedCIDR
 	}
 	if err := runner.Apply(ctx, varFile, extraVars); err != nil {
 		return fmt.Errorf("tofu apply: %w", err)
