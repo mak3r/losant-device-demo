@@ -74,10 +74,25 @@ resource "google_compute_firewall" "allow_flannel" {
   target_tags = ["ldc-demo-${var.cluster_name}"]
 }
 
+resource "google_compute_firewall" "deny_egress" {
+  name      = "${local.prefix}-deny-egress"
+  network   = "default"
+  direction = "EGRESS"
+  priority  = 1000
+
+  deny {
+    protocol = "all"
+  }
+
+  destination_ranges = ["0.0.0.0/0"]
+  target_tags        = ["ldc-demo-${var.cluster_name}"]
+}
+
 resource "google_compute_firewall" "allow_egress" {
   name      = "${local.prefix}-allow-egress"
   network   = "default"
   direction = "EGRESS"
+  priority  = 500
 
   allow {
     protocol = "all"
