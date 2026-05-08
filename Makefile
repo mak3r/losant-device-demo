@@ -3,7 +3,7 @@ MODULE     := github.com/mak3r/ldc-demo
 BUILD_DIR  := bin
 INSTALL_DIR := /usr/local/bin
 
-.PHONY: build test lint install clean tofu-fmt tofu-validate tidy
+.PHONY: build test lint install clean tofu-fmt tofu-validate tofu-validate-gcp tidy
 
 build:
 	go build -o $(BUILD_DIR)/$(BINARY) ./cmd/ldc-demo
@@ -25,6 +25,13 @@ tofu-fmt:
 
 tofu-validate:
 	@for dir in tofu/modules/*/; do \
+		echo "Validating $$dir ..."; \
+		tofu -chdir="$$dir" init -backend=false -input=false > /dev/null && \
+		tofu -chdir="$$dir" validate; \
+	done
+
+tofu-validate-gcp:
+	@for dir in tofu/modules/gcp-*/; do \
 		echo "Validating $$dir ..."; \
 		tofu -chdir="$$dir" init -backend=false -input=false > /dev/null && \
 		tofu -chdir="$$dir" validate; \
