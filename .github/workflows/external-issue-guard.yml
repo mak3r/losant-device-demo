@@ -1,11 +1,11 @@
-name: External PR Guard
+name: External Issue Guard
 
 on:
-  pull_request_target:
-    types: [opened, reopened, synchronized]
+  issues:
+    types: [opened]
 
 permissions:
-  pull-requests: write
+  issues: write
   contents: read
 
 jobs:
@@ -17,7 +17,7 @@ jobs:
         with:
           script: |
             const { owner, repo } = context.repo;
-            const login = context.payload.pull_request.user.login;
+            const login = context.payload.issue.user.login;
 
             let isCollaborator = false;
             try {
@@ -27,22 +27,22 @@ jobs:
 
             if (isCollaborator) return;
 
-            const prNumber = context.payload.pull_request.number;
+            const issueNumber = context.payload.issue.number;
 
             await github.rest.issues.createComment({
               owner, repo,
-              issue_number: prNumber,
-              body: 'Thank you for your interest. This repository currently only accepts contributions from the project maintainer. This PR has been closed automatically.'
+              issue_number: issueNumber,
+              body: 'Thank you for your interest. This repository currently only accepts contributions from the project maintainer. This issue has been closed automatically.'
             });
 
-            await github.rest.pulls.update({
+            await github.rest.issues.update({
               owner, repo,
-              pull_number: prNumber,
+              issue_number: issueNumber,
               state: 'closed'
             });
 
             await github.rest.issues.lock({
               owner, repo,
-              issue_number: prNumber,
+              issue_number: issueNumber,
               lock_reason: 'spam'
             });
