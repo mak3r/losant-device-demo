@@ -65,6 +65,14 @@ When this mode is enabled, the token never appears in EC2 user-data. The flow is
 
 ## GCP-Specific Risks
 
+### GCP Credentials
+
+| Credential | Source | How It Flows |
+|---|---|---|
+| `GOOGLE_APPLICATION_CREDENTIALS` | Env var (path to JSON key) | Read by OpenTofu's Google provider at `ldc-demo create`; path is never written to disk by the CLI; the JSON key file must be protected separately |
+| `GCLOUD_PROJECT` | Env var | Used by `gcloud` CLI calls in `fail`/`fix`; stored in cluster state as `provider_config.gcp_project` (not the credentials file) |
+| `GCLOUD_ZONE` | Env var | Used to scope `gcloud compute` calls; not sensitive |
+
 ### Accepted Risk: Default Compute Engine Service Account
 
 Neither `gcp-k3s-single` nor `gcp-k3s-ha` attaches a custom service account to `google_compute_instance`. GCP provisions the instance with the **default Compute Engine SA** (`<project-number>-compute@developer.gserviceaccount.com`), which is granted the `Editor` role on the project by default.
@@ -92,13 +100,11 @@ Any process on the instance — and any IAM principal with `compute.instances.ge
 - No `set -x` or shell debug flag in any `runcmd` block.
 - The token is not surfaced in any OpenTofu output.
 
-### Known Limitation: GCP Default VPC Egress Cannot Be Fully Blocked
+### Known Limitation: `fail network` Egress Behavior on GCP
 
-The `allow_egress` firewall rule created by both GCP modules targets tagged instances. `ldc-demo fail network` disables this named rule. However, GCP's `default` VPC has an **implicit allow-all egress rule (priority 65535)** that cannot be deleted — it can only be superseded by an explicit DENY rule with higher priority.
+`ldc-demo fail network` works by disabling the `<name>-allow-egress` firewall rule (priority 500), leaving the `<name>-deny-egress` rule (priority 1000) to block all egress. This two-rule pattern — deny at priority 1000, allow at priority 500 — was added in PR #69 to make `fail network` effective on GCP.
 
-**Impact:** Disabling the `ldc-demo-<name>-allow-egress` firewall rule does **not** fully block egress from instances in the `default` VPC. Traffic continues to flow via the default VPC's implicit egress.
-
-**Workaround:** `ldc-demo fail network` is a best-effort network isolation tool for demo purposes. For real workload isolation, use a dedicated VPC with an explicit DENY egress rule. Tracked in issue #81.
+**Important:** GCP's `default` VPC has an implicit allow-all egress rule at priority 65535 that cannot be removed. If you reuse the `default` VPC instead of the dedicated VPC created by the `gcp-k3s-*` modules, the named rules do not apply and `fail network` will not block egress. Always use the tofu modules — do not provision clusters directly in the `default` VPC.
 
 ## Accepted Risks: Open Security Group Rules
 
@@ -133,18 +139,18 @@ Formal review completed on both AWS modules.
 
 | Variable | Module | `sensitive = true` |
 |---|---|---|
-| `losant_api_token` | both | ✓ |
-| `k3s_token` | aws-k3s-ha only | ✓ |
+| `losant_api_token` | aws-k3s-single, aws-k3s-ha, gcp-k3s-single, gcp-k3s-ha | ✓ |
+| `k3s_token` | aws-k3s-ha, gcp-k3s-ha | ✓ |
 
-No sensitive variables are missing the `sensitive` attribute.
+No sensitive variables are missing the `sensitive` attribute in any module.
 
 #### Outputs
 
-No sensitive values are exposed in `outputs.tf` for either module. Outputs are limited to public IPs, cluster name, SSH username, and the remote kubeconfig path.
+No sensitive values are exposed in `outputs.tf` for any module. Outputs are limited to public IPs, cluster name, SSH username, and the remote kubeconfig path.
 
 #### Hardcoded Credentials
 
-None found. All secret values flow through Terraform variables injected at `tofu apply` time.
+None found in AWS or GCP modules. All secret values flow through Terraform variables injected at `tofu apply` time. No GCP credential values appear in any module file.
 
 #### cloud-init File Permissions
 
@@ -193,7 +199,7 @@ No custom SA is attached. Instances run under the default Compute Engine SA. See
 
 #### Firewall Egress
 
-The `allow_egress` firewall rule is tag-scoped. Disabling it via `ldc-demo fail network` does not fully block egress on the `default` VPC. See **GCP-Specific Risks: Default VPC Egress** above and tracking issue #81.
+The `allow_egress` firewall rule (priority 500) is tag-scoped. A `deny_egress` rule (priority 1000) was added in PR #69 so that disabling `allow_egress` via `ldc-demo fail network` fully blocks egress on the dedicated VPC. The limitation only applies if using the `default` VPC — see **GCP-Specific Risks: `fail network` Egress Behavior** above.
 
 #### Go Code Credential Audit
 
