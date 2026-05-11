@@ -12,6 +12,7 @@ permissions:
 jobs:
   initialize:
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
     steps:
       - name: Set collaborators-only interaction limit
         run: |
