@@ -81,6 +81,10 @@ Global flags: `--state-dir <path>` (default: `~/.ldc-demo`), `--tofu-binary <pat
 
 ldc-demo is designed for demo environments. The defaults (open security groups, Losant credentials in EC2 user-data) are intentionally permissive for ease of use. Before running real workloads, read [docs/security.md](docs/security.md) for the full credential flow, accepted risks, and production mitigations.
 
+## Contributing
+
+This repository is not currently accepting external contributions. All development is performed by the project maintainer and AI agent personas operating under the same account. Pull requests from external accounts are automatically closed.
+
 ## License
 
 Apache 2.0 — see [LICENSE](LICENSE).
