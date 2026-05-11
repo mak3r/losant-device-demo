@@ -153,10 +153,19 @@ The merge manager is a gatekeeper, not a coder. When reviewing a PR it:
 2. Checks for open `type/security` issues on the branch — if any exist, blocks merge and creates a blocking issue
 3. If CI is green and no blockers exist, merges the PR to `main` with `gh pr merge <n> --merge --delete-branch` (no approval step — all personas share one GitHub account, so self-approval is not possible)
 4. Never edits source files, never force-pushes, never resolves conflicts directly
+5. PRs from accounts other than `mak3r` are automatically closed by the `external-pr-guard.yml` workflow (trigger: `pull_request_target`). If a PR somehow bypasses the guard, the merge-manager closes it manually with a comment explaining the policy.
 
 When conflicts exist between two branches, the merge manager creates an issue assigned to both responsible personas and waits for them to resolve it.
 
 For releases: when `main` is stable, the merge manager bumps `internal/version/version.go` and tags the release with a `v*` tag. No other file changes. Pushing the tag triggers `.github/workflows/release.yml`, which runs `make test`, builds and pushes a multi-arch image to `ghcr.io/mak3r/losant-device:<tag>`, and creates a GitHub Release.
+
+### Contribution Policy and Branch Protection
+
+This repository does not accept external contributions. All development is performed by the project maintainer and AI agent personas operating under the same GitHub account.
+
+**Automated gate:** `.github/workflows/external-pr-guard.yml` triggers on `pull_request_target` and auto-closes any PR opened by a non-`mak3r` account with an explanatory comment.
+
+**Branch protection on `main`:** requires `build-and-test` and `tofu-validate` status checks to pass. `required_pull_request_reviews` is deliberately NOT set — this allows the merge-manager to self-merge (all personas share one GitHub account, making peer review impossible).
 
 ## Product Designer Rules
 
