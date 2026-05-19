@@ -76,6 +76,11 @@ func runCreate(cmd *cobra.Command, args []string) error {
 			return err
 		}
 	}
+	if provider == "aws" {
+		if err := checkRequiredEnv("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"); err != nil {
+			return err
+		}
+	}
 
 	if err := checkRequiredEnv("LDC_LOSANT_API_TOKEN", "LDC_LOSANT_APPLICATION_ID"); err != nil {
 		return err
