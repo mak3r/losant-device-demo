@@ -81,6 +81,23 @@ Global flags: `--state-dir <path>` (default: `~/.ldc-demo`), `--tofu-binary <pat
 
 ldc-demo is designed for demo environments. The defaults (open security groups, Losant credentials in EC2 user-data) are intentionally permissive for ease of use. Before running real workloads, read [docs/security.md](docs/security.md) for the full credential flow, accepted risks, and production mitigations.
 
+## Reporting Issues
+
+If you've found a bug, documentation gap, or security concern, use the triage agent to file a properly routed GitHub issue:
+
+1. Install [Claude Code](https://claude.ai/code) if you don't have it
+2. Clone the repo and open a Claude Code session at the repo root:
+   ```bash
+   git clone https://github.com/mak3r/losant-device-demo
+   cd losant-device-demo
+   claude
+   ```
+3. In the Claude Code prompt, run:
+   ```
+   /triage
+   ```
+   The agent will ask a few questions, then draft and create the issue with correct labels and routing.
+
 ## Contributing
 
 This repository is not currently accepting external contributions. All development is performed by the project maintainer and AI agent personas operating under the same account. Pull requests from external accounts are automatically closed.

@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh issue *)",
+      "Bash(gh auth status)",
+      "Bash(find . *)",
+      "Bash(grep *)"
+    ]
+  }
+}
