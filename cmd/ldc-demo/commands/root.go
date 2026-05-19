@@ -22,10 +22,17 @@ var rootCmd = &cobra.Command{
 providers pre-configured with the losant-device controller.
 
 Environment variables required for create commands:
-  LDC_LOSANT_API_TOKEN       Losant API token
-  LDC_LOSANT_APPLICATION_ID  Losant application ID
-  AWS_ACCESS_KEY_ID          AWS credentials (or use ~/.aws/credentials)
-  AWS_SECRET_ACCESS_KEY`,
+  LDC_LOSANT_API_TOKEN            Losant API token
+  LDC_LOSANT_APPLICATION_ID       Losant application ID
+
+  AWS provider:
+  AWS_ACCESS_KEY_ID               AWS credentials (or use ~/.aws/credentials)
+  AWS_SECRET_ACCESS_KEY
+
+  GCP provider:
+  GOOGLE_APPLICATION_CREDENTIALS  path to GCP service account key JSON
+  GCLOUD_PROJECT                  GCP project ID
+  GCLOUD_ZONE                     GCP zone (e.g. us-central1-a)`,
 	PersistentPreRunE: validateEnvironment,
 }
 
