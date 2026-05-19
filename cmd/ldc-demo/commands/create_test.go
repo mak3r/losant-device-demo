@@ -107,6 +107,79 @@ func setupTemplateDir(t *testing.T, provider, content string) {
 	t.Cleanup(func() { os.Chdir(orig) }) //nolint:errcheck
 }
 
+func TestCreateAWSBothCredentialsMissing(t *testing.T) {
+	oldSize := createSize
+	createSize = "small"
+	t.Cleanup(func() { createSize = oldSize })
+
+	t.Setenv("AWS_ACCESS_KEY_ID", "")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "")
+
+	err := runCreate(dummyCmd(), []string{"mycluster", "aws"})
+	if err == nil {
+		t.Fatal("expected error for missing AWS credentials, got nil")
+	}
+	if !strings.Contains(err.Error(), "AWS_ACCESS_KEY_ID") {
+		t.Errorf("expected error to mention AWS_ACCESS_KEY_ID, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "AWS_SECRET_ACCESS_KEY") {
+		t.Errorf("expected error to mention AWS_SECRET_ACCESS_KEY, got: %v", err)
+	}
+}
+
+func TestCreateAWSAccessKeyIDMissing(t *testing.T) {
+	oldSize := createSize
+	createSize = "small"
+	t.Cleanup(func() { createSize = oldSize })
+
+	t.Setenv("AWS_ACCESS_KEY_ID", "")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "some-secret")
+
+	err := runCreate(dummyCmd(), []string{"mycluster", "aws"})
+	if err == nil {
+		t.Fatal("expected error for missing AWS_ACCESS_KEY_ID, got nil")
+	}
+	if !strings.Contains(err.Error(), "AWS_ACCESS_KEY_ID") {
+		t.Errorf("expected error to mention AWS_ACCESS_KEY_ID, got: %v", err)
+	}
+}
+
+func TestCreateAWSSecretKeyMissing(t *testing.T) {
+	oldSize := createSize
+	createSize = "small"
+	t.Cleanup(func() { createSize = oldSize })
+
+	t.Setenv("AWS_ACCESS_KEY_ID", "some-key-id")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "")
+
+	err := runCreate(dummyCmd(), []string{"mycluster", "aws"})
+	if err == nil {
+		t.Fatal("expected error for missing AWS_SECRET_ACCESS_KEY, got nil")
+	}
+	if !strings.Contains(err.Error(), "AWS_SECRET_ACCESS_KEY") {
+		t.Errorf("expected error to mention AWS_SECRET_ACCESS_KEY, got: %v", err)
+	}
+}
+
+func TestCreateGCPProjectMissing(t *testing.T) {
+	oldSize := createSize
+	createSize = "small"
+	t.Cleanup(func() { createSize = oldSize })
+
+	t.Setenv("GCLOUD_PROJECT", "")
+
+	err := runCreate(dummyCmd(), []string{"mycluster", "gcp"})
+	if err == nil {
+		t.Fatal("expected error for missing GCLOUD_PROJECT, got nil")
+	}
+	if !strings.Contains(err.Error(), "GCLOUD_PROJECT") {
+		t.Errorf("expected error to mention GCLOUD_PROJECT, got: %v", err)
+	}
+	if strings.Contains(err.Error(), "unsupported cloud provider") {
+		t.Errorf("GCP should be a valid provider; got unexpected error: %v", err)
+	}
+}
+
 func TestWriteTempVarFileGCP(t *testing.T) {
 	setupTemplateDir(t, "gcp", "machine_type = \"e2-standard-2\"\n")
 

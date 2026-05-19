@@ -16,7 +16,8 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "ldc-demo",
+	Use:          "ldc-demo",
+	SilenceUsage: true,
 	Short: "Provision and manage k3s clusters for Losant device controller demos",
 	Long: `ldc-demo wraps OpenTofu to quickly stand up k3s Kubernetes clusters on cloud
 providers pre-configured with the losant-device controller.
