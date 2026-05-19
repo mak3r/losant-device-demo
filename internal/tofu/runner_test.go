@@ -22,6 +22,19 @@ func fakeTofu(t *testing.T) string {
 	return script
 }
 
+// fakeEnvTofu is like fakeTofu but also prints TF_VAR_* environment variables so
+// tests can assert secrets are injected via env rather than -var= CLI flags.
+func fakeEnvTofu(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	script := filepath.Join(dir, "tofu")
+	src := "#!/bin/sh\nif [ \"$1\" = \"output\" ]; then\n  printf 'fake-value'\nelse\n  echo \"$@\"\n  env | grep '^TF_VAR_' || true\nfi\n"
+	if err := os.WriteFile(script, []byte(src), 0700); err != nil { //nolint:gosec // G306: fake test script must be executable
+		t.Fatalf("write fake env tofu: %v", err)
+	}
+	return script
+}
+
 // newRunner returns a Runner backed by the fake binary and two temp dirs.
 // The returned buffer captures stdout (and stderr) from every run() call.
 func newRunner(t *testing.T) (*Runner, *bytes.Buffer) {
@@ -149,5 +162,49 @@ func TestRunnerWorkspaceSelect(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Errorf("WorkspaceSelect args missing %q; got: %q", want, out)
 		}
+	}
+}
+
+func TestRunnerApplySecretEnv(t *testing.T) {
+	var buf bytes.Buffer
+	r := &Runner{
+		Binary:    fakeEnvTofu(t),
+		ModuleDir: t.TempDir(),
+		WorkDir:   filepath.Join(t.TempDir(), "workspace"),
+		Workspace: "test-ws",
+		Stdout:    &buf,
+		Stderr:    &buf,
+	}
+	if err := r.Apply(context.Background(), "", nil, map[string]string{"losant_api_token": "tok123"}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	out := buf.String()
+	if strings.Contains(out, "-var=losant_api_token=tok123") {
+		t.Errorf("Apply must not pass secret as -var= flag; got: %q", out)
+	}
+	if !strings.Contains(out, "TF_VAR_losant_api_token=tok123") {
+		t.Errorf("Apply must set TF_VAR_losant_api_token env var; got: %q", out)
+	}
+}
+
+func TestRunnerDestroySecretEnv(t *testing.T) {
+	var buf bytes.Buffer
+	r := &Runner{
+		Binary:    fakeEnvTofu(t),
+		ModuleDir: t.TempDir(),
+		WorkDir:   filepath.Join(t.TempDir(), "workspace"),
+		Workspace: "test-ws",
+		Stdout:    &buf,
+		Stderr:    &buf,
+	}
+	if err := r.Destroy(context.Background(), "", nil, map[string]string{"losant_api_token": "tok123"}); err != nil {
+		t.Fatalf("Destroy: %v", err)
+	}
+	out := buf.String()
+	if strings.Contains(out, "-var=losant_api_token=tok123") {
+		t.Errorf("Destroy must not pass secret as -var= flag; got: %q", out)
+	}
+	if !strings.Contains(out, "TF_VAR_losant_api_token=tok123") {
+		t.Errorf("Destroy must set TF_VAR_losant_api_token env var; got: %q", out)
 	}
 }

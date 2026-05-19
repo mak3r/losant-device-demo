@@ -134,14 +134,16 @@ func runCreate(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("Provisioning %s cluster %q on %s (size: %s) ...\n", clusterType(ha), name, provider, createSize)
 	extraVars := map[string]string{
-		"losant_api_token":      os.Getenv("LDC_LOSANT_API_TOKEN"),
-		"losant_application_id": os.Getenv("LDC_LOSANT_APPLICATION_ID"),
-		"k3s_channel":           createK3sChannel,
+		"k3s_channel": createK3sChannel,
 	}
 	if createAllowedCIDR != "" {
 		extraVars["allowed_cidr"] = createAllowedCIDR
 	}
-	if err := runner.Apply(ctx, varFile, extraVars); err != nil {
+	secretEnv := map[string]string{
+		"losant_api_token":      os.Getenv("LDC_LOSANT_API_TOKEN"),
+		"losant_application_id": os.Getenv("LDC_LOSANT_APPLICATION_ID"),
+	}
+	if err := runner.Apply(ctx, varFile, extraVars, secretEnv); err != nil {
 		return fmt.Errorf("tofu apply: %w", err)
 	}
 
