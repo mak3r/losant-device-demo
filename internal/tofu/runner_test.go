@@ -58,10 +58,13 @@ func TestRunnerInit(t *testing.T) {
 	}
 	absModule, _ := filepath.Abs(r.ModuleDir)
 	out := buf.String()
-	for _, want := range []string{"init", "-input=false", absModule} {
+	for _, want := range []string{"init", "-input=false", "-from-module=" + absModule} {
 		if !strings.Contains(out, want) {
 			t.Errorf("Init args missing %q; got: %q", want, out)
 		}
+	}
+	if strings.Contains(out, " "+absModule) {
+		t.Errorf("Init must not pass bare module path as positional arg; got: %q", out)
 	}
 }
 
@@ -72,10 +75,13 @@ func TestRunnerApply(t *testing.T) {
 	}
 	absModule, _ := filepath.Abs(r.ModuleDir)
 	out := buf.String()
-	for _, want := range []string{"apply", "-auto-approve", "-input=false", "-var-file=cluster.tfvars", "-var=region=us-east-1", absModule} {
+	for _, want := range []string{"apply", "-auto-approve", "-input=false", "-var-file=cluster.tfvars", "-var=region=us-east-1"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("Apply args missing %q; got: %q", want, out)
 		}
+	}
+	if strings.Contains(out, absModule) {
+		t.Errorf("Apply must not pass module path as arg; got: %q", out)
 	}
 }
 
@@ -96,10 +102,13 @@ func TestRunnerDestroy(t *testing.T) {
 	}
 	absModule, _ := filepath.Abs(r.ModuleDir)
 	out := buf.String()
-	for _, want := range []string{"destroy", "-auto-approve", "-input=false", "-var-file=cluster.tfvars", "-var=k=v", absModule} {
+	for _, want := range []string{"destroy", "-auto-approve", "-input=false", "-var-file=cluster.tfvars", "-var=k=v"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("Destroy args missing %q; got: %q", want, out)
 		}
+	}
+	if strings.Contains(out, absModule) {
+		t.Errorf("Destroy must not pass module path as arg; got: %q", out)
 	}
 }
 
