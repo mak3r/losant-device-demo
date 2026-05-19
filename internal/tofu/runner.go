@@ -39,13 +39,24 @@ func (r *Runner) stderr() io.Writer {
 }
 
 func (r *Runner) run(ctx context.Context, args ...string) error {
+	return r.runWithEnv(ctx, nil, args...)
+}
+
+// runWithEnv runs tofu with extra TF_VAR_* env vars for secret injection.
+// Secrets in extraEnv are passed as environment variables instead of -var= flags
+// to prevent exposure in /proc/<pid>/cmdline and ps output.
+func (r *Runner) runWithEnv(ctx context.Context, extraEnv map[string]string, args ...string) error {
 	if err := os.MkdirAll(r.WorkDir, 0700); err != nil {
 		return fmt.Errorf("create workspace dir: %w", err)
 	}
 	//nolint:gosec // G204: Binary is a known tofu path set at construction; args are program-controlled
 	cmd := exec.CommandContext(ctx, r.Binary, args...)
 	cmd.Dir = r.WorkDir
-	cmd.Env = os.Environ()
+	env := os.Environ()
+	for k, v := range extraEnv {
+		env = append(env, "TF_VAR_"+k+"="+v)
+	}
+	cmd.Env = env
 	cmd.Stdout = r.stdout()
 	cmd.Stderr = r.stderr()
 	return cmd.Run()
@@ -59,7 +70,10 @@ func (r *Runner) Init(ctx context.Context) error {
 	return r.run(ctx, "init", "-input=false", "-from-module="+absModule)
 }
 
-func (r *Runner) Apply(ctx context.Context, varFile string, extraVars map[string]string) error {
+// Apply runs tofu apply. extraVars are passed as -var= flags (safe for non-secret
+// values). extraEnv keys are injected as TF_VAR_<key>=<value> env vars to keep
+// secrets out of the process table.
+func (r *Runner) Apply(ctx context.Context, varFile string, extraVars map[string]string, extraEnv ...map[string]string) error {
 	args := []string{"apply", "-auto-approve", "-input=false"}
 	if varFile != "" {
 		args = append(args, "-var-file="+varFile)
@@ -67,10 +81,17 @@ func (r *Runner) Apply(ctx context.Context, varFile string, extraVars map[string
 	for k, v := range extraVars {
 		args = append(args, fmt.Sprintf("-var=%s=%s", k, v))
 	}
-	return r.run(ctx, args...)
+	var secretEnv map[string]string
+	if len(extraEnv) > 0 {
+		secretEnv = extraEnv[0]
+	}
+	return r.runWithEnv(ctx, secretEnv, args...)
 }
 
-func (r *Runner) Destroy(ctx context.Context, varFile string, extraVars map[string]string) error {
+// Destroy runs tofu destroy. extraVars are passed as -var= flags (safe for non-secret
+// values). extraEnv keys are injected as TF_VAR_<key>=<value> env vars to keep
+// secrets out of the process table.
+func (r *Runner) Destroy(ctx context.Context, varFile string, extraVars map[string]string, extraEnv ...map[string]string) error {
 	args := []string{"destroy", "-auto-approve", "-input=false"}
 	if varFile != "" {
 		args = append(args, "-var-file="+varFile)
@@ -78,7 +99,11 @@ func (r *Runner) Destroy(ctx context.Context, varFile string, extraVars map[stri
 	for k, v := range extraVars {
 		args = append(args, fmt.Sprintf("-var=%s=%s", k, v))
 	}
-	return r.run(ctx, args...)
+	var secretEnv map[string]string
+	if len(extraEnv) > 0 {
+		secretEnv = extraEnv[0]
+	}
+	return r.runWithEnv(ctx, secretEnv, args...)
 }
 
 func (r *Runner) Output(ctx context.Context, key string) (string, error) {

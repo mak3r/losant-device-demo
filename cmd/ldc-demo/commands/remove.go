@@ -85,12 +85,12 @@ func runRemoveAll(cmd *cobra.Command, args []string) error {
 			Workspace: cluster.UID,
 		}
 
-		extraVars := map[string]string{
+		secretEnv := map[string]string{
 			"losant_api_token":      os.Getenv("LDC_LOSANT_API_TOKEN"),
 			"losant_application_id": os.Getenv("LDC_LOSANT_APPLICATION_ID"),
 		}
 
-		if err := runner.Destroy(ctx, varFile, extraVars); err != nil {
+		if err := runner.Destroy(ctx, varFile, nil, secretEnv); err != nil {
 			fmt.Fprintf(os.Stderr, "error destroying %s: %v\n", cluster.Name, err)
 			lastErr = err
 		} else {
@@ -152,12 +152,12 @@ func runRemoveName(cmd *cobra.Command, args []string) error {
 		Workspace: cluster.UID,
 	}
 
-	extraVars := map[string]string{
+	secretEnv := map[string]string{
 		"losant_api_token":      os.Getenv("LDC_LOSANT_API_TOKEN"),
 		"losant_application_id": os.Getenv("LDC_LOSANT_APPLICATION_ID"),
 	}
 
-	if err := runner.Destroy(ctx, varFile, extraVars); err != nil {
+	if err := runner.Destroy(ctx, varFile, nil, secretEnv); err != nil {
 		return fmt.Errorf("destroy cluster %s: %w", cluster.Name, err)
 	}
 
