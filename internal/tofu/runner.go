@@ -56,14 +56,10 @@ func (r *Runner) Init(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("resolve module path: %w", err)
 	}
-	return r.run(ctx, "init", "-input=false", absModule)
+	return r.run(ctx, "init", "-input=false", "-from-module="+absModule)
 }
 
 func (r *Runner) Apply(ctx context.Context, varFile string, extraVars map[string]string) error {
-	absModule, err := filepath.Abs(r.ModuleDir)
-	if err != nil {
-		return fmt.Errorf("resolve module path: %w", err)
-	}
 	args := []string{"apply", "-auto-approve", "-input=false"}
 	if varFile != "" {
 		args = append(args, "-var-file="+varFile)
@@ -71,15 +67,10 @@ func (r *Runner) Apply(ctx context.Context, varFile string, extraVars map[string
 	for k, v := range extraVars {
 		args = append(args, fmt.Sprintf("-var=%s=%s", k, v))
 	}
-	args = append(args, absModule)
 	return r.run(ctx, args...)
 }
 
 func (r *Runner) Destroy(ctx context.Context, varFile string, extraVars map[string]string) error {
-	absModule, err := filepath.Abs(r.ModuleDir)
-	if err != nil {
-		return fmt.Errorf("resolve module path: %w", err)
-	}
 	args := []string{"destroy", "-auto-approve", "-input=false"}
 	if varFile != "" {
 		args = append(args, "-var-file="+varFile)
@@ -87,7 +78,6 @@ func (r *Runner) Destroy(ctx context.Context, varFile string, extraVars map[stri
 	for k, v := range extraVars {
 		args = append(args, fmt.Sprintf("-var=%s=%s", k, v))
 	}
-	args = append(args, absModule)
 	return r.run(ctx, args...)
 }
 
